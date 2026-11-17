@@ -2,20 +2,52 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { logIn, logOut, requestLoginCode } from "@/domain/auth";
+import { latestSimulatedSms } from "@/adapters/sms";
+import { type AuthOutcome, logIn, logOut, requestLoginCode, signUp } from "@/domain/auth";
 import { getDeps } from "../deps";
-import { SESSION_COOKIE, requireUser, sessionToken } from "../session";
+import { LOGIN_SMS_COOKIE, SESSION_COOKIE, requireUser, sessionToken } from "../session";
 import { type ActionResult, refusal } from "./result";
 
-/** Public: sends the simulated SMS and moves on to entering the inloggningskod. */
+/** Where each outcome leads; a sent code also ties its simulated SMS to this browser. */
+async function follow(outcome: AuthOutcome): Promise<never> {
+  const mobil = encodeURIComponent(outcome.phone);
+  switch (outcome.kind) {
+    case "refer_to_sign_up":
+      redirect(`/skapa-konto?mobil=${mobil}&hanvisning=inget-konto`);
+    case "refer_to_log_in":
+      redirect(`/logga-in?mobil=${mobil}&hanvisning=konto-finns`);
+    case "code_sent": {
+      const sms = latestSimulatedSms(getDeps().db, outcome.phone);
+      if (sms) (await cookies()).set(LOGIN_SMS_COOKIE, String(sms.id), { httpOnly: true, sameSite: "lax", path: "/" });
+      redirect(`/logga-in/kod?mobil=${mobil}`);
+    }
+  }
+}
+
+/** Public: sends the simulated SMS (also for "Begär ny inloggningskod"), or refers to kontoskapande. */
 export async function requestLoginCodeAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
-  let phone: string;
+  let outcome: AuthOutcome;
   try {
-    ({ phone } = await requestLoginCode(getDeps(), String(form.get("phone") ?? "")));
+    outcome = await requestLoginCode(getDeps(), String(form.get("phone") ?? ""));
   } catch (e) {
     return refusal(e);
   }
-  redirect(`/logga-in/kod?mobil=${encodeURIComponent(phone)}`);
+  return follow(outcome);
+}
+
+/** Public: kontoskapande, then on to the inloggningskod; an existing number is referred to inloggning. */
+export async function signUpAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
+  let outcome: AuthOutcome;
+  try {
+    outcome = await signUp(getDeps(), {
+      phone: String(form.get("phone") ?? ""),
+      firstName: String(form.get("firstName") ?? ""),
+      lastName: String(form.get("lastName") ?? ""),
+    });
+  } catch (e) {
+    return refusal(e);
+  }
+  return follow(outcome);
 }
 
 /** Public: checks the inloggningskod and opens the session. */
@@ -26,7 +58,9 @@ export async function logInAction(_prev: ActionResult, form: FormData): Promise<
   } catch (e) {
     return refusal(e);
   }
-  (await cookies()).set(SESSION_COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/" });
+  const jar = await cookies();
+  jar.set(SESSION_COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/" });
+  jar.delete(LOGIN_SMS_COOKIE);
   redirect("/erbjudanden");
 }
 

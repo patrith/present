@@ -19,13 +19,16 @@ export class SimulatedSmsSender implements SmsSender {
   }
 }
 
-/** The latest simulated SMS sent to a phone number, for the "Simulerat SMS" box. */
-export function latestSimulatedSms(db: Db, phone: string): { body: string; sentAt: Date } | undefined {
-  return db
-    .select({ body: smsOutbox.body, sentAt: smsOutbox.sentAt })
-    .from(smsOutbox)
-    .where(eq(smsOutbox.phone, phone))
-    .orderBy(desc(smsOutbox.id))
-    .limit(1)
-    .get();
+export type SimulatedSms = { id: number; phone: string; body: string; sentAt: Date };
+
+const columns = { id: smsOutbox.id, phone: smsOutbox.phone, body: smsOutbox.body, sentAt: smsOutbox.sentAt };
+
+/** The latest simulated SMS sent to a phone number. */
+export function latestSimulatedSms(db: Db, phone: string): SimulatedSms | undefined {
+  return db.select(columns).from(smsOutbox).where(eq(smsOutbox.phone, phone)).orderBy(desc(smsOutbox.id)).limit(1).get();
+}
+
+/** One simulated SMS by id, for the "Simulerat SMS" box of the browser that requested it. */
+export function simulatedSmsById(db: Db, id: number): SimulatedSms | undefined {
+  return db.select(columns).from(smsOutbox).where(eq(smsOutbox.id, id)).get();
 }

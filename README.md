@@ -28,7 +28,7 @@ Inställningar via miljövariabler:
 
 ## Testanvändare
 
-Logga in med mobilnumret. Inloggningskoden visas i rutan **Simulerat SMS**.
+Logga in med mobilnumret. Inloggningskoden visas i rutan **Simulerat SMS** och gäller i 10 minuter; **Begär ny inloggningskod** ersätter den. Ett nytt konto skapas under **Skapa konto** med mobilnummer, förnamn och efternamn.
 
 | Namn | Mobilnummer | Roll |
 |------|-------------|------|

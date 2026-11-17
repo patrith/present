@@ -163,3 +163,17 @@
   - **Interpretation**: accepted as inherent to the simulated SMS in a course demo. Keep the box, but if this story touches the page, show only the SMS from the request the same browser just made (for example tied to a cookie set by the request action), not any number's latest.
   - **Traced from**: S01/TI06 (review finding N3)
   - **Date**: 2026-11-17
+
+
+## Implementation Observations
+
+- **TI05 reading, no schema change**: "the number's open code" is read as the number's latest issued inloggningskod. `logIn` checks only that row (match, unused, age ≤ validity), so a new request invalidates every earlier code without an extra column; `login_codes` already had `created_at` and `used_at`, so `src/db/` is untouched.
+- **Expired takes precedence**: when the latest code is past its validity, the refusal says it has expired whatever was typed, since a new inloggningskod is needed either way.
+- **Discovered Requirement implemented**: the request and kontoskapande actions set an httpOnly `login_sms` cookie with the outbox id of the SMS they sent; `/logga-in/kod` shows only that SMS, and only when its number matches the URL. Proved by the stranger-browser check in `e2e/auth.spec.ts#wrong code then new code logs in`. The cookie value is a sequential id, so a hand-forged cookie could still read another SMS; accepted for the simulated SMS, where anyone may request a code for any number anyway.
+- **Visual validation P2 fixed**: a refused form lost what the user typed (React 19 resets a form after its `action`). `src/components/action-form.tsx` now submits through `onSubmit` with `startTransition`, keeping `action` for no-JS posts; this applies to every `ActionForm` (also S01's publish and purchase forms). Regression guard: `e2e/auth.spec.ts#wrong entry points refer with number filled` asserts the refused number stays in the field.
+- NOTICED BUT NOT TOUCHING (review, LOW, code-defect): `src/server/actions/auth.ts` `follow()` reads `latestSimulatedSms(db, phone)` after sending, so two near-simultaneous requests for one number could put the other browser's SMS id in the cookie. Remedy: have `SmsSender.send` return the outbox id (changes S01's adapter contract). Routing: Note.
+- NOTICED BUT NOT TOUCHING (review, LOW, code-defect, confidence 50): two simultaneous kontoskapande for one number could hit the `users.phone` unique constraint and give a 500 instead of the hänvisning. `signUp` has no await between check and insert, so within one Node process it cannot interleave. Routing: Note.
+- NOTICED BUT NOT TOUCHING (review, LOW, design): `src/app/logga-in/mobile-param.ts` is also imported by `src/app/skapa-konto/page.tsx`; a shared spot such as `src/app/_lib/` would fit better. Routing: Note.
+- NOTICED BUT NOT TOUCHING (visual, P3): the header is ~6 px taller with the back arrow (`AppFrame`), so content shifts between /logga-in and /skapa-konto; the code in the "Simulerat SMS" box is plain text where the prototype shows bold monospace; refusal notes sit under the submit button where the prototype puts them above it; /skapa-konto has no subtitle. Routing: Note.
+- Glossary: rows for Mobilnummer, Kontoskapande and Hänvisning added to `docs/UBIQUITOUS_LANGUAGE.md` (review finding).
+- The conditional `used_at IS NULL` UPDATE guard in `logIn` has no dedicated test: `logIn` is synchronous on better-sqlite3, so two submissions cannot interleave in-process; the guard is defensive per Constraints.

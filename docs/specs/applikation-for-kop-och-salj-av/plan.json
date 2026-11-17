@@ -115,9 +115,15 @@
       "dependsOn": [
         "S01"
       ],
-      "status": "pending",
       "fis": "s02-inloggning-och-konto.md",
-      "completedTaskIds": [],
+      "completedTaskIds": [
+        "TI01",
+        "TI02",
+        "TI03",
+        "TI04",
+        "TI05",
+        "TI06"
+      ],
       "scope": "Förtjockar skeletonets inloggning till hela FR1: kontoskapande med namn, felaktig eller för gammal inloggningskod, ogiltigt svenskt mobilnummer, befintligt konto hänvisas till inloggning och oregistrerat nummer hänvisas till kontoskapande med numret ifyllt, samt ny kod på begäran.",
       "sourceRefs": [
         "docs/specs/applikation-for-kop-och-salj-av/prd.md#fr1-inloggning-med-simulerad-sms-kod"
@@ -127,7 +133,12 @@
         "docs/UBIQUITOUS_LANGUAGE.md",
         "docs/adrs/ADR-005-klocka-och-svep.md"
       ],
-      "sequencing": null
+      "sequencing": null,
+      "verified": {
+        "at": "2026-11-17T05:49Z",
+        "summary": "npm run test:full -> exit=0, Vitest Tests 29 passed (29); Playwright 7 passed (49.7s)"
+      },
+      "status": "done"
     },
     {
       "id": "S03",

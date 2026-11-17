@@ -5,6 +5,9 @@ import { getDeps } from "./deps";
 
 export const SESSION_COOKIE = "session";
 
+/** Id of the simulated SMS this browser last requested: the only one its "Simulerat SMS" box shows. */
+export const LOGIN_SMS_COOKIE = "login_sms";
+
 export async function sessionToken(): Promise<string | undefined> {
   return (await cookies()).get(SESSION_COOKIE)?.value;
 }
