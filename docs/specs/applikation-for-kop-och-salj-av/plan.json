@@ -190,9 +190,21 @@
       "dependsOn": [
         "S01"
       ],
-      "status": "in-progress",
+      "status": "done",
       "fis": "s05-kopets-felvagar-och-samtidighet.md",
-      "completedTaskIds": [],
+      "completedTaskIds": [
+        "TI01",
+        "TI02",
+        "TI03",
+        "TI04",
+        "TI05",
+        "TI06",
+        "TI07",
+        "TI08",
+        "TI09",
+        "TI10",
+        "TI11"
+      ],
       "scope": "Förtjockar köpet till hela FR5: samtidiga köp där exakt en reservation lyckas, nekad auktorisering, kontrollens ogiltig, lägre saldo, inget svar och fel vid köp, reservation som löper ut före leverans, dubblerat betalningsbesked och säljare som försöker köpa sin egen annons. Inför de tidsstyrda reglernas mekanism (expireDue, svep, kontroll vid anrop) med reservationens utgång som första regel. Täcker felscenario 1, 2, 4 och 5 samt de köprelaterade raderna i PRD:ns Edge Cases-tabell.",
       "sourceRefs": [
         "docs/specs/applikation-for-kop-och-salj-av/prd.md#fr5-köp-med-reservation-auktorisering-och-leverans",
@@ -205,7 +217,11 @@
         "docs/DECISIONS.md",
         "docs/UBIQUITOUS_LANGUAGE.md"
       ],
-      "sequencing": null
+      "sequencing": null,
+      "verified": {
+        "at": "2026-11-17T06:30Z",
+        "summary": "npm test -> exit=0, Test Files  21 passed (21), Tests  43 passed (43); npx playwright test e2e/purchase-failures.spec.ts (worktree config, port 3105) -> exit=0, 2 passed"
+      }
     },
     {
       "id": "S06",

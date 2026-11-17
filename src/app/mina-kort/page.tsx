@@ -2,12 +2,12 @@ import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
 import { kr, ListingStatusPill, MerchantLogo, PurchaseStatusPill } from "@/components/ui";
 import { getMyCards } from "@/domain/my-cards";
-import { getDeps } from "@/server/deps";
+import { getCurrentDeps } from "@/server/deps";
 import { requireUser } from "@/server/session";
 
 export default async function MyCardsPage() {
   const user = await requireUser();
-  const mine = getMyCards(getDeps().db, user.id);
+  const mine = getMyCards((await getCurrentDeps()).db, user.id);
   return (
     <AppFrame title="Mina kort" user={user} tab="mina-kort">
       <div className="section-t">Köpta kort</div>

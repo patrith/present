@@ -2,12 +2,12 @@ import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
 import { kr, MerchantLogo, VerifiedPill } from "@/components/ui";
 import { searchListings } from "@/domain/listings";
-import { getDeps } from "@/server/deps";
+import { getCurrentDeps } from "@/server/deps";
 import { requireUser } from "@/server/session";
 
 export default async function SearchPage() {
   const user = await requireUser();
-  const activeListings = searchListings(getDeps().db);
+  const activeListings = searchListings((await getCurrentDeps()).db);
   return (
     <AppFrame title="Erbjudanden" user={user} tab="erbjudanden">
       <div className="list">

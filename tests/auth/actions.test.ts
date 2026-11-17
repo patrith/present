@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
     throw new Error("NOT_FOUND");
   },
 }));
-vi.mock("@/server/deps", () => ({ getDeps: () => state.deps }));
+vi.mock("@/server/deps", () => ({ getDeps: () => state.deps, getCurrentDeps: async () => state.deps }));
 
 describe("server actions", () => {
   it("data-changing actions refuse a missing session", async () => {
@@ -51,7 +51,7 @@ describe("server actions", () => {
       ["logOutAction", () => authActions.logOutAction()],
     ];
     expect(protectedActions.map(([name]) => name).sort()).toEqual(
-      ["approvePaymentAction", "logOutAction", "publishListingAction", "startPurchaseAction"].sort(),
+      ["approvePaymentAction", "declinePaymentAction", "logOutAction", "publishListingAction", "startPurchaseAction"].sort(),
     );
     for (const [name, call] of protectedActions) {
       await expect(call(), name).rejects.toThrow("REDIRECT /logga-in");

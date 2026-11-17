@@ -41,6 +41,7 @@ button { cursor: pointer; }
 .btn { display: inline-block; text-align: center; text-decoration: none; border: 0; border-radius: 999px; padding: 11px 18px; font-weight: 700; letter-spacing: .02em; background: var(--brand); color: var(--brand-fg); }
 .btn.secondary { background: transparent; color: var(--fg); border: 1.5px solid var(--line); }
 .btn.ok { background: var(--ok); color: var(--surface); }
+.btn.danger { background: var(--bad); color: var(--surface); }
 .btn.small { padding: 7px 12px; font-size: 13px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

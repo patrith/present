@@ -5,13 +5,13 @@ import { kr, ListingStatusPill, VerifiedPill } from "@/components/ui";
 import { giftCardCodeFor } from "@/domain/gift-card-code";
 import { getListing } from "@/domain/listings";
 import { startPurchaseAction } from "@/server/actions/purchases";
-import { getDeps } from "@/server/deps";
+import { getCurrentDeps } from "@/server/deps";
 import { requireUser } from "@/server/session";
 
 export default async function ListingPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const id = Number((await params).id);
-  const { db } = getDeps();
+  const { db } = await getCurrentDeps();
   const listing = Number.isInteger(id) ? getListing(db, id) : undefined;
   if (!listing) notFound();
   const own = listing.sellerId === user.id;

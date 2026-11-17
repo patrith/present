@@ -27,11 +27,15 @@ export const allowedTransitions: { [E in Entity]: ReadonlyArray<readonly [Status
     [null, "active"],
     ["active", "reserved"],
     ["reserved", "sold"],
+    ["reserved", "active"],
+    ["reserved", "flagged"],
   ],
   purchase: [
     [null, "started"],
     ["started", "authorized"],
     ["authorized", "delivered"],
+    ["started", "failed"],
+    ["authorized", "failed"],
   ],
 };
 
@@ -56,6 +60,8 @@ type TransitionArgs<E extends Entity> = {
       set?: Partial<Omit<RowOf<E>, "status" | "id">>;
       /** Extra column conditions the row must meet besides its prior status. */
       guard?: Partial<Omit<RowOf<E>, "status" | "id">>;
+      /** A further SQL condition on the row, for checks equality cannot express. */
+      condition?: SQL;
     }
 );
 
@@ -84,7 +90,13 @@ export function transition<E extends Entity>(db: DbOrTx, args: TransitionArgs<E>
   // Generic discriminants do not narrow; the public signature above keeps callers typed.
   const a = args as unknown as
     | { from: null; values: Record<string, unknown> }
-    | { from: string; id: number; set?: Record<string, unknown>; guard?: Record<string, unknown> };
+    | {
+        from: string;
+        id: number;
+        set?: Record<string, unknown>;
+        guard?: Record<string, unknown>;
+        condition?: SQL;
+      };
 
   return db.transaction((tx) => {
     let id: number;
@@ -101,6 +113,7 @@ export function transition<E extends Entity>(db: DbOrTx, args: TransitionArgs<E>
         const column = (table as unknown as Record<string, Parameters<typeof eq>[0]>)[key];
         conditions.push(value === null ? isNull(column) : eq(column, value));
       }
+      if (a.condition) conditions.push(a.condition);
       const result = tx
         .update(table)
         .set({ ...a.set, status: to } as never)
