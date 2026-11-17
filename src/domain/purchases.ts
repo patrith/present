@@ -14,6 +14,7 @@ import { BUYER_CODE_STATUSES, giftCardCodeFor, giftCardCodeForVerification } fro
 import { kronor } from "./money";
 import { purchaseStatusLabel } from "./status";
 import { type FailureCause, failPurchaseTx } from "./purchase-failure";
+import { type OwnerHistoryRow, ownerHistory } from "./status-history";
 import { transition } from "./transition";
 
 export type PurchaseView = {
@@ -30,6 +31,8 @@ export type PurchaseView = {
   deliveredAt: Date | null;
   /** The köp's orsak once it is Misslyckat. */
   failureReason: string | null;
+  /** Misslyckat because of the (simulated) butikskontroll at köp: shown as "Simulerad butikskontroll". */
+  failedAtCheck: boolean;
   /** Present only after leverans. */
   giftCardCode?: string;
 };
@@ -198,6 +201,17 @@ export async function receivePaymentAnswer(
   return { kind: "failed", reason: failure.cause.reason, balanceMismatch: failure.balanceMismatch };
 }
 
+const CHECK_INVALID = "butiken godkände inte koden";
+const CHECK_NO_RESPONSE = "butikskontrollen svarade inte";
+const CHECK_ERROR = "butikskontrollen svarade med fel";
+const CHECK_BALANCE_MISMATCH = "saldoavvikelse";
+
+/** Whether a köp's orsak names a failure of the butikskontroll at köp. */
+function isCheckFailure(reason: string | null): boolean {
+  if (reason === null) return false;
+  return [CHECK_INVALID, CHECK_NO_RESPONSE, CHECK_ERROR].includes(reason) || reason.startsWith(`${CHECK_BALANCE_MISMATCH}:`);
+}
+
 type CheckFailure = { cause: FailureCause; balanceMismatch?: { reported: number; advertised: number } };
 
 /** The failure a butikskontroll answer at köp causes, or undefined when it allows leverans. */
@@ -205,20 +219,20 @@ function failureOf(check: VerificationResult, advertised: number): CheckFailure 
   switch (check.outcome) {
     case "invalid":
       return {
-        cause: { reason: "butiken godkände inte koden", actorUserId: null, listingTo: "flagged", flagReason: "ogiltig kod" },
+        cause: { reason: CHECK_INVALID, actorUserId: null, listingTo: "flagged", flagReason: "ogiltig kod" },
       };
     case "no_response":
-      return { cause: { reason: "butikskontrollen svarade inte", actorUserId: null, listingTo: "active" } };
+      return { cause: { reason: CHECK_NO_RESPONSE, actorUserId: null, listingTo: "active" } };
     case "error":
-      return { cause: { reason: "butikskontrollen svarade med fel", actorUserId: null, listingTo: "active" } };
+      return { cause: { reason: CHECK_ERROR, actorUserId: null, listingTo: "active" } };
     case "valid":
       if (check.balance >= advertised) return undefined;
       return {
         cause: {
-          reason: `saldoavvikelse: butiken anger ${kronor(check.balance)} i stället för annonserade ${kronor(advertised)}`,
+          reason: `${CHECK_BALANCE_MISMATCH}: butiken anger ${kronor(check.balance)} i stället för annonserade ${kronor(advertised)}`,
           actorUserId: null,
           listingTo: "flagged",
-          flagReason: "saldoavvikelse",
+          flagReason: CHECK_BALANCE_MISMATCH,
         },
         balanceMismatch: { reported: check.balance, advertised },
       };
@@ -279,10 +293,13 @@ export async function deliverPurchase(deps: Deps, purchaseId: number): Promise<P
   return { kind: "delivered" };
 }
 
-function toView(db: Db, viewerId: number, row: Omit<PurchaseView, "giftCardCode">): PurchaseView {
+type ViewRow = Omit<PurchaseView, "giftCardCode" | "failedAtCheck">;
+
+function toView(db: Db, viewerId: number, row: ViewRow): PurchaseView {
+  const view = { ...row, failedAtCheck: row.status === "failed" && isCheckFailure(row.failureReason) };
   const showsCode = (BUYER_CODE_STATUSES as readonly PurchaseStatus[]).includes(row.status);
   const giftCardCode = showsCode ? giftCardCodeFor(db, viewerId, row.listingId) : undefined;
-  return giftCardCode ? { ...row, giftCardCode } : row;
+  return giftCardCode ? { ...view, giftCardCode } : view;
 }
 
 const viewColumns = {
@@ -449,6 +466,16 @@ export type PurchasePage = PurchaseView & {
   disputeNote?: string;
   /** While Återbetalat: the simulated återbetalning. */
   refund?: { label: "Simulerad återbetalning"; amount: number };
+  /** With the presentkortskod: what the köpare is told in this status. */
+  codeNote?: string;
+  /** The köp's statushistorik, oldest first – for its köpare only. */
+  history: OwnerHistoryRow[];
+};
+
+const CODE_NOTES: Partial<Record<PurchaseStatus, string>> = {
+  delivered: "Klart! Visa koden i kassan.",
+  completed: "Affären är avslutad. Koden är din.",
+  disputed: "Koden visas medan reklamationen behandlas.",
 };
 
 const DISPUTE_NOTE =
@@ -456,7 +483,12 @@ const DISPUTE_NOTE =
 
 export function getPurchasePage(deps: Pick<Deps, "db" | "config">, viewerId: number, purchaseId: number): PurchasePage {
   const view = getPurchaseForBuyer(deps.db, viewerId, purchaseId);
-  const page: PurchasePage = { ...view, canSettle: view.status === "delivered" };
+  const page: PurchasePage = {
+    ...view,
+    canSettle: view.status === "delivered",
+    history: ownerHistory(deps.db, "purchase", purchaseId),
+  };
+  if (view.giftCardCode) page.codeNote = CODE_NOTES[view.status];
   if (view.status === "delivered" && view.deliveredAt) {
     page.claimDeadline = new Date(view.deliveredAt.getTime() + deps.config.claimPeriodMs);
   }

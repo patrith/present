@@ -1,8 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { advanceDemoClock } from "@/domain/demo-clock";
+import { expireDue } from "@/domain/expire-due";
 import { startPurchase } from "@/domain/purchases";
 import { register } from "@/instrumentation";
 import { SWEEP_INTERVAL_MS, stopSweep } from "@/server/sweep";
 import { forceListingStatus, listingRow, makeTestDeps, publishNk, purchaseRow, userId } from "../helpers";
+
+// expireDue as the real function, wrapped so a test can read the `now` each call was given.
+vi.mock("@/domain/expire-due", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/domain/expire-due")>();
+  return { ...original, expireDue: vi.fn(original.expireDue) };
+});
 
 const holder = globalThis as typeof globalThis & { __presentkortDeps?: unknown };
 
@@ -51,6 +59,21 @@ describe("sweep", () => {
     expect(listingRow(deps.db, listingId).status).toBe("active");
     await vi.advanceTimersByTimeAsync(SWEEP_INTERVAL_MS);
     expect(listingRow(deps.db, listingId).status).toBe("expired");
+  });
+
+  it("sweep sees the advanced demo clock", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const deps = makeTestDeps();
+    holder.__presentkortDeps = deps;
+    vi.stubEnv("NEXT_RUNTIME", "nodejs");
+    await register();
+
+    await advanceDemoClock(deps, 24 * 60 * 60_000);
+    const advanced = new Date("2026-11-18T12:00:00+01:00");
+    vi.mocked(expireDue).mockClear();
+    await vi.advanceTimersByTimeAsync(SWEEP_INTERVAL_MS);
+    expect(vi.mocked(expireDue)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(expireDue).mock.calls[0][1]).toEqual(advanced);
   });
 
   it("does not start outside the Node.js runtime", async () => {

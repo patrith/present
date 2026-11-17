@@ -35,7 +35,8 @@ test("demo flow publish find buy see code", async ({ browser }) => {
   // Sara publishes an NK card: saldo 1 000 kr, pris 850 kr, valid a year ahead.
   await logIn(sara, phones.sara);
   const listingPath = await publish(sara, "Nordiska Kompagniet", code);
-  await expect(sara.getByText("Aktiv")).toBeVisible();
+  // The status pill in the hero (the säljare also sees "Aktiv" in the statushistorik, story S08).
+  await expect(sara.locator(".hero").getByText("Aktiv")).toBeVisible();
   await expect(sara.getByText("Kontrollerad (simulerat)")).toBeVisible();
   await expect(sara.getByTestId("gift-card-code")).toHaveText(code);
 

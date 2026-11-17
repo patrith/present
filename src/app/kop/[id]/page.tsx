@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, FieldError } from "@/components/action-form";
 import { AppFrame } from "@/components/app-frame";
-import { kr, PurchaseStatusPill, SimBox } from "@/components/ui";
+import { kr, PurchaseStatusPill, SimBox, StatusHistory } from "@/components/ui";
 import { formatStockholmDateTime } from "@/domain/dates";
 import { isDomainError } from "@/domain/errors";
 import { getPurchasePage, type PurchasePage } from "@/domain/purchases";
@@ -84,10 +84,13 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
 
       {p.status === "failed" && (
         <>
-          <div className="note bad" data-testid="purchase-failure">
-            <b>Köpet genomfördes inte.</b> Orsak: {p.failureReason}. Inga pengar har dragits och ingen kod har
-            lämnats ut.
-          </div>
+          {p.failedAtCheck ? (
+            <SimBox label="Simulerad butikskontroll">
+              <FailureNote reason={p.failureReason} />
+            </SimBox>
+          ) : (
+            <FailureNote reason={p.failureReason} />
+          )}
           <Link className="btn secondary" href="/erbjudanden">
             Tillbaka till erbjudanden
           </Link>
@@ -96,7 +99,7 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
 
       {p.giftCardCode && (
         <>
-          <div className="note ok">Klart! Visa koden i kassan.</div>
+          {p.codeNote && <div className={`note ${p.status === "disputed" ? "warn" : "ok"}`}>{p.codeNote}</div>}
           <div className="code" data-testid="gift-card-code">
             {p.giftCardCode}
           </div>
@@ -162,6 +165,16 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
           </dl>
         </SimBox>
       )}
+
+      <StatusHistory rows={p.history} />
     </AppFrame>
+  );
+}
+
+function FailureNote({ reason }: { reason: string | null }) {
+  return (
+    <div className="note bad" data-testid="purchase-failure">
+      <b>Köpet genomfördes inte.</b> Orsak: {reason}. Inga pengar har dragits och ingen kod har lämnats ut.
+    </div>
   );
 }

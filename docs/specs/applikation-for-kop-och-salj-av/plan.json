@@ -335,9 +335,21 @@
         "S06",
         "S07"
       ],
-      "status": "in-progress",
+      "status": "done",
       "fis": "s08-mina-kort-och-demolage.md",
-      "completedTaskIds": [],
+      "completedTaskIds": [
+        "TI01",
+        "TI02",
+        "TI03",
+        "TI04",
+        "TI05",
+        "TI06",
+        "TI07",
+        "TI08",
+        "TI09",
+        "TI10",
+        "TI11"
+      ],
       "scope": "Förtjockar mina kort till hela FR9 (alla statusar med orsak, utbetalningssaldo, kod för Levererat/Avslutat/Tvist, statushistorik med tidpunkt, tomma lägen) och slutför FR10: demopanelen märkt \"Simulerad tid\" som flyttar klockan och tillämpar alla tidsregler, samt en genomgång som bevisar att varje simulerat element i FR10:s lista är märkt. Avslutas med att hela demoflödet och ett felflöde körs end-to-end mot PRD:ns Success Metrics.",
       "sourceRefs": [
         "docs/specs/applikation-for-kop-och-salj-av/prd.md#fr9-mina-kort",
@@ -351,7 +363,11 @@
         "docs/UBIQUITOUS_LANGUAGE.md",
         "docs/prototype/presentkortsmarknaden.html"
       ],
-      "sequencing": "Demopanelen ska flytta klockan för alla tidsregler, som S05–S07 inför; utbetalningssaldot kommer från S06; statushistorikvyn och märkningen av butikskontrollens avslag bygger på S03:s ändringar, och flöde 1 end-to-end på S04:s filter. Efter S08 stannar planen för teamets manuella genomgång (tidtagen demo ≤ 2 min och FR10-märkningarna) före ship."
+      "sequencing": "Demopanelen ska flytta klockan för alla tidsregler, som S05–S07 inför; utbetalningssaldot kommer från S06; statushistorikvyn och märkningen av butikskontrollens avslag bygger på S03:s ändringar, och flöde 1 end-to-end på S04:s filter. Efter S08 stannar planen för teamets manuella genomgång (tidtagen demo ≤ 2 min och FR10-märkningarna) före ship.",
+      "verified": {
+        "at": "2026-11-17T14:27Z",
+        "summary": "npm test -> exit=0, Test Files  43 passed (43), Tests  87 passed (87); npx playwright test --config .agent_temp/pw-s08.config.ts (whole e2e suite, port 3108) -> exit=0, 21 passed (2.1m)"
+      }
     }
   ]
 }

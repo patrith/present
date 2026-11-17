@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, startTransition, useActionState, useContext } from "react";
+import { SimBox } from "@/components/ui";
 import type { ActionResult } from "@/server/actions/result";
 
 const ResultContext = createContext<ActionResult>(undefined);
@@ -34,9 +35,11 @@ export function ActionForm({
     >
       <ResultContext.Provider value={result}>{children}</ResultContext.Provider>
       {result?.error && !result.field && (
-        <div className="note bad" role="alert">
-          {result.error}
-        </div>
+        <Refusal result={result}>
+          <div className="note bad" role="alert">
+            {result.error}
+          </div>
+        </Refusal>
       )}
     </form>
   );
@@ -47,8 +50,15 @@ export function FieldError({ name }: { name: string }) {
   const result = useContext(ResultContext);
   if (!result?.error || result.field !== name) return null;
   return (
-    <div className="note bad" role="alert" data-field={name}>
-      {result.error}
-    </div>
+    <Refusal result={result}>
+      <div className="note bad" role="alert" data-field={name}>
+        {result.error}
+      </div>
+    </Refusal>
   );
+}
+
+/** A refusal from a simulated step sits inside that step's labelled element (FR10). */
+function Refusal({ result, children }: { result: NonNullable<ActionResult>; children: React.ReactNode }) {
+  return result.simulated ? <SimBox label={result.simulated}>{children}</SimBox> : children;
 }

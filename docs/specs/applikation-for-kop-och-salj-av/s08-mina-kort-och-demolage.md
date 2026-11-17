@@ -229,3 +229,19 @@
   - **Interpretation**: Extend these shapes; add no second history formatter or orsak query path.
   - **Traced from**: S06/TI09, S06/TI08, S07/TI07
   - **Date**: 2026-11-17
+
+
+## Implementation Observations
+
+- `advanceDemoClock(deps, ms)` lives in `src/domain/demo-clock.ts` with `getDemoPanel` (panel data: simulated time, config line, steps) and the step table `DEMO_STEPS`; the server action `src/server/actions/demo.ts` accepts only a step id ("1m", "5m", "1d"), so a crafted post cannot jump the clock by an arbitrary amount – an unknown id maps to 0 and is refused by the domain. The panel (`src/components/demo-panel.tsx`) sits above every page in the root layout and calls `router.refresh()` after the action.
+- Statushistorik has one reader, `statusHistoryOf` in `src/domain/status-history.ts`, moved out of `src/domain/disputes.ts` (Tvister keeps its aktör column through it); owner views use `ownerHistory`, which drops the aktör (Settled Decisions). The annons page's data moved into `getListingPage` (`src/domain/listings.ts`), which hands the code and history to the säljare only; the köp page's `getPurchasePage` carries `history` and a per-status `codeNote` (a Tvist köp no longer reads "Klart!").
+- Statushistorik tidpunkt is shown to the second (`formatStockholmTimestamp` in `src/domain/dates.ts`), as scenario S03's example "2026-11-17 12:00:21" asks; other times keep HH:MM.
+- "Simulerad butikskontroll": a `verification_failed` refusal carries `simulated` in `ActionResult` and renders inside a SimBox at its field (publicering and rättning alike); a köp failure carries `failedAtCheck` on `PurchaseView` (reasons of the butikskontroll at köp, now named constants in `purchases.ts`), shown as a SimBox on the köp page and a sim pill in mina kort.
+- `listingsOfSeller` now orders newest first; the Utgången orsak for the whole list is one query (`expiryReasonsOf`), keeping `expiryReason` and the "Har gått ut: …" text.
+- Mina kort's empty states are `MY_CARDS_EMPTY` in `src/domain/my-cards.ts`; `MyCards` keeps its shape, so S01's Lisa assertion stands.
+- `e2e/demo-flow.spec.ts`'s `getByText("Aktiv")` became `.hero`-scoped: the säljare's annons view now also shows "Aktiv" in its statushistorik (strict-mode clash). Harness change only; the assertion is the same status pill.
+- ASSUMPTION: scenario S10's "utbetalningssaldo 850 kr" is asserted as Sara's saldo before the flow plus 850 kr (read in the UI before the timer starts), since the shared e2e database carries other specs' credits – a dedicated fresh database for the journey spec would let it assert 850 kr exactly.
+- ASSUMPTION: scenario S08's "saldo raised by the köp's belopp" is asserted as before + 850 kr + every other Levererat köp of Sara's annonser, read (not written) from the e2e database just before the move – in the shared suite, other specs' Levererat köp lapse on the same "+1 dag". A spec-private database would make the read unnecessary.
+- `e2e/helpers.ts` gained `startBuying` and `shownPayout` and an optional `validUntil` on `publish`/`fillPublishForm`.
+- NOTICED BUT NOT TOUCHING: `e2e/after-delivery.spec.ts` keeps its own `buyAndReceive`/`payoutShown` and `e2e/purchase-failures.spec.ts` its own `buy`, now duplicating `startBuying`/`shownPayout` in `e2e/helpers.ts`; Tvister (`src/app/tvister/page.tsx`) still formats history to the minute.
+- Review note (N1, LOW, Routing: Note): `failedAtCheck` classifies a köp failure by matching the stored `failureReason` against the `CHECK_*` constants in `src/domain/purchases.ts`; if those orsak strings ever change, earlier köp lose their "Simulerad butikskontroll" label. A stored failure-cause column would remove the coupling; not needed while S03–S07's copy is pinned.

@@ -1,11 +1,8 @@
-import { aliasedTable, and, asc, eq, inArray } from "drizzle-orm";
+import { aliasedTable, asc, eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { listings, merchants, type PurchaseStatus, purchases, statusHistory, users } from "@/db/schema";
+import { listings, merchants, purchases, users } from "@/db/schema";
 import { DomainError } from "./errors";
-import { purchaseStatusLabel } from "./status";
-
-/** One statushistorik row: tidpunkt, aktör, orsak and the status it led to (Swedish name). */
-export type DisputeHistoryRow = { at: Date; actor: string; reason: string; status: string };
+import { type StatusHistoryRow, statusHistoryOf } from "./status-history";
 
 /** A tvist as the demoadministratör sees it. Code-free by construction: no column holds the presentkortskod. */
 export type DisputeDto = {
@@ -15,16 +12,12 @@ export type DisputeDto = {
   buyerName: string;
   sellerName: string;
   claimReason: string;
-  history: DisputeHistoryRow[];
+  /** The köp's statushistorik, aktör included. */
+  history: StatusHistoryRow[];
 };
 
 const buyers = aliasedTable(users, "buyers");
 const sellers = aliasedTable(users, "sellers");
-
-function actorName(actor: { firstName: string; lastName: string; role: string } | undefined): string {
-  if (!actor) return "system";
-  return actor.role === "admin" ? "demoadministratören" : `${actor.firstName} ${actor.lastName}`;
-}
 
 /** Refuses (forbidden, with `message`) anyone but the demoadministratör. */
 export function requireAdmin(db: Db, userId: number, message: string): void {
@@ -57,29 +50,7 @@ export function listDisputes(db: Db, viewerId: number): DisputeDto[] {
     .all();
   if (rows.length === 0) return [];
 
-  const history = db
-    .select({
-      entityId: statusHistory.entityId,
-      at: statusHistory.at,
-      reason: statusHistory.reason,
-      toStatus: statusHistory.toStatus,
-      actorFirst: users.firstName,
-      actorLast: users.lastName,
-      actorRole: users.role,
-    })
-    .from(statusHistory)
-    .leftJoin(users, eq(users.id, statusHistory.actorUserId))
-    .where(
-      and(
-        eq(statusHistory.entityType, "purchase"),
-        inArray(
-          statusHistory.entityId,
-          rows.map((r) => r.purchaseId),
-        ),
-      ),
-    )
-    .orderBy(asc(statusHistory.id))
-    .all();
+  const history = statusHistoryOf(db, "purchase", rows.map((r) => r.purchaseId));
 
   return rows.map((r) => ({
     purchaseId: r.purchaseId,
@@ -88,14 +59,7 @@ export function listDisputes(db: Db, viewerId: number): DisputeDto[] {
     buyerName: `${r.buyerFirst} ${r.buyerLast}`,
     sellerName: `${r.sellerFirst} ${r.sellerLast}`,
     claimReason: r.claimReason ?? "",
-    history: history
-      .filter((h) => h.entityId === r.purchaseId)
-      .map((h) => ({
-        at: h.at,
-        reason: h.reason,
-        status: purchaseStatusLabel[h.toStatus as PurchaseStatus],
-        actor: actorName(h.actorRole ? { firstName: h.actorFirst!, lastName: h.actorLast!, role: h.actorRole } : undefined),
-      })),
+    history: history.get(r.purchaseId)!,
   }));
 }
 

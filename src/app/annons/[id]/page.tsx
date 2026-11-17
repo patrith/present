@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 import { ActionForm, FieldError } from "@/components/action-form";
 import { AppFrame } from "@/components/app-frame";
-import { CheckStatusPill, kr, ListingStatusPill, ShortValidityPill } from "@/components/ui";
-import { giftCardCodeFor } from "@/domain/gift-card-code";
-import { getListingView, type ListingDto } from "@/domain/listings";
+import { CheckStatusPill, kr, ListingStatusPill, ShortValidityPill, StatusHistory } from "@/components/ui";
+import { getListingPage, type ListingDto } from "@/domain/listings";
 import { listingStatusLabel } from "@/domain/status";
 import { editListingAction, withdrawListingAction } from "@/server/actions/listings";
 import { startPurchaseAction } from "@/server/actions/purchases";
@@ -14,11 +13,9 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   const user = await requireUser();
   const id = Number((await params).id);
   const deps = await getCurrentDeps();
-  const { db } = deps;
-  const listing = Number.isInteger(id) ? getListingView(deps, id) : undefined;
+  const listing = Number.isInteger(id) ? getListingPage(deps, user.id, id) : undefined;
   if (!listing) notFound();
-  const own = listing.sellerId === user.id;
-  const code = own ? giftCardCodeFor(db, user.id, listing.id) : undefined;
+  const { own } = listing;
 
   return (
     <AppFrame title="Erbjudande" user={user} tab={own ? "mina-kort" : "erbjudanden"} backHref={own ? "/mina-kort" : "/erbjudanden"}>
@@ -56,15 +53,16 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
         <dt>Säljare</dt>
         <dd>{listing.sellerFirstName}</dd>
       </dl>
-      {own ? (
+      {listing.own ? (
         <>
           <label className="field">
             Presentkortskod (bara synlig för dig)
             <div className="code" style={{ fontSize: 16 }} data-testid="gift-card-code">
-              {code}
+              {listing.giftCardCode}
             </div>
           </label>
-          <SellerActions listing={listing} code={code ?? ""} />
+          <SellerActions listing={listing} code={listing.giftCardCode} />
+          <StatusHistory rows={listing.history} />
         </>
       ) : (
         <div className="note">

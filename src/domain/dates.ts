@@ -16,6 +16,16 @@ const dateTimeFormat = new Intl.DateTimeFormat("sv-SE", {
   minute: "2-digit",
 });
 
+const timestampFormat = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
 /** The calendar date (YYYY-MM-DD) of an instant in Swedish time. */
 export function stockholmDate(instant: Date): string {
   return dateFormat.format(instant);
@@ -24,6 +34,11 @@ export function stockholmDate(instant: Date): string {
 /** Date and time of an instant in Swedish time, e.g. "2026-11-17 12:00". */
 export function formatStockholmDateTime(instant: Date): string {
   return dateTimeFormat.format(instant);
+}
+
+/** A statushistorik tidpunkt in Swedish time, to the second, e.g. "2026-11-17 12:00:21". */
+export function formatStockholmTimestamp(instant: Date): string {
+  return timestampFormat.format(instant);
 }
 
 const wallClockFormat = new Intl.DateTimeFormat("en-US", {
