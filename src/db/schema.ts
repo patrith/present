@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /** Annonsstatus in code; the UI shows the Swedish names (see src/domain/status.ts). */
 export const listingStatuses = ["active", "reserved", "sold", "flagged", "expired", "withdrawn"] as const;
@@ -55,6 +55,25 @@ export const listings = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [index("listings_status_idx").on(t.status)],
+);
+
+/**
+ * Dubblettkontroll: every presentkortskod an annons has held, kept after the annons is sold,
+ * withdrawn or its code corrected. Unique per handlare, so a concurrent duplicate fails.
+ */
+export const listingCodes = sqliteTable(
+  "listing_codes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    listingId: integer("listing_id")
+      .notNull()
+      .references(() => listings.id),
+    merchantId: text("merchant_id")
+      .notNull()
+      .references(() => merchants.id),
+    giftCardCode: text("gift_card_code").notNull(),
+  },
+  (t) => [uniqueIndex("listing_codes_merchant_code_unique").on(t.merchantId, t.giftCardCode)],
 );
 
 export const purchases = sqliteTable(

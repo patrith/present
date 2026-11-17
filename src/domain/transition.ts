@@ -27,6 +27,11 @@ export const allowedTransitions: { [E in Entity]: ReadonlyArray<readonly [Status
     [null, "active"],
     ["active", "reserved"],
     ["reserved", "sold"],
+    // FR3: the säljare's edit (pris, code, saldo), rättning of a Flaggad annons, återkallelse.
+    ["active", "active"],
+    ["flagged", "active"],
+    ["active", "withdrawn"],
+    ["flagged", "withdrawn"],
   ],
   purchase: [
     [null, "started"],
