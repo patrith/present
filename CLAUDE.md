@@ -19,6 +19,9 @@ Read a document whole when its trigger matches, because a grep finds only what y
 Create a missing document and its entry here from `project-document-templates.md` when that file is loaded, else through a subagent that invokes the `andthen:init` skill with `seed <name>`.
 
 - **Product** – `docs/PRODUCT.md`: vision, personas, principles, non-goals (firmly rejected concepts included), Proportionality facts. Read before proposing a feature, a design, or new machinery, or triaging an issue or feature request: features anchor to it, and its stage and scale size what gets built.
+- **Decisions** – `docs/DECISIONS.md`: ADR index and Still Current notes. Read before proposing or changing a design or architecture choice; settled decisions are not relitigated without new evidence.
+- **ADRs** – `docs/adrs/`. Read the ADR a decision cites before revisiting it; add one per new decision.
+- **Ubiquitous Language** – `docs/UBIQUITOUS_LANGUAGE.md`: canonical terms and the synonyms to avoid. Read before naming, renaming, or describing domain concepts; add a row when a term settles.
 - **Requirements** – `docs/requirements/`: the source requirement specifications (kravspecar) as received. Read before writing or revising a PRD; never edit them – they are the input record.
 - **Specs & Plans** – `docs/specs/<version-or-feature>/`: per version or feature, its `prd.md`, `plan.json`, and one FIS per story (`s01-*.md`, …), written by the `clarify` and `plan` skills. Read the governing FIS before implementing; update the FIS and its story's `plan.json` row as execution proceeds. `plan.json` has one writer per copy at a time, so a `plan` breakdown's story subagents never write it. An oversized FIS is a story too big: decompose it (`OVERSIZE:`), never trim it.
 - **Agent Temp** – `.agent_temp/`: scratch workspace for reviews, research, and QA; never ship from it.

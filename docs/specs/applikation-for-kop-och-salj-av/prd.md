@@ -368,12 +368,12 @@ Här listas de fall som ingen enskild funktion äger.
 |------------|----------------|
 | Simulerad butikskontroll (testadapter) med dokumenterad svarstabell | Styr publicering, köp och alla verifieringsrelaterade felscenarier |
 | Simulerad betalleverantör (auktorisera, dra, släpp, återbetala) | Styr betal- och felflöden; ska vara deterministisk och testbar |
-| Teknikval som teamet dokumenterar | Krävs innan planering och implementation |
+| Teknikval som teamet dokumenterar | Krävs innan planering och implementation – gjort i ADR-001 till ADR-005 (`docs/DECISIONS.md`) |
 
 
 ## Open Questions
 
-- Vilken teknikstack (frontend, backend, datalagring, testramverk) ska prototypen byggas med, och hur säkerställs atomär reservation i den?
+- Vilken teknikstack (frontend, backend, datalagring, testramverk) ska prototypen byggas med, och hur säkerställs atomär reservation i den? – Avgjord av ADR-001 till ADR-005 (`docs/DECISIONS.md`).
 - Ska annons, köp och betalning modelleras som separata aggregat, och vilka statusövergångar är tillåtna utöver dem som FR3–FR8 anger?
 - Area to revisit: produktionslansering – juridisk granskning av presentkortsvillkor, konsumenträtt, GDPR, betal- och penningtvättsregler, skatt och bedrägeriskydd skulle avgöra vad som krävs bortom prototypen.
 - Area to revisit: marknadshypotesen om andelen kort som aldrig används – data eller användarintervjuer skulle göra den till ett faktum.

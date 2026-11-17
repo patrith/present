@@ -1,0 +1,647 @@
+<title>Presentkortsmarknaden</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400;8..144,500;8..144,700&family=Roboto+Mono:wght@500&display=swap">
+<style>
+/* Layout: phone-sized app (Figma's purple app shell) beside a demo control desk; stacks on narrow screens. */
+:root {
+  --bg: #efecf6;
+  --surface: #ffffff;
+  --surface-2: #f5f2fc;
+  --fg: #1d1530;
+  --muted: #625a78;
+  --line: #ddd6ee;
+  --brand: #2b0b6f;
+  --brand-fg: #ffffff;
+  --lilac: #d8c7ff;
+  --lilac-fg: #2b0b6f;
+  --ok: #1d7a4a;
+  --ok-bg: #dff3e7;
+  --warn: #8a5a00;
+  --warn-bg: #fdf0d2;
+  --bad: #a3263b;
+  --bad-bg: #fbe1e5;
+  --sim: #6a3fd6;
+  --sim-bg: #ece4ff;
+  --font: "Roboto Flex", Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Roboto Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #100d18; --surface: #1b1727; --surface-2: #231e33; --fg: #ece8f6; --muted: #a59dbb; --line: #352e49;
+  --brand: #3a1691; --brand-fg: #ffffff; --lilac: #4b3290; --lilac-fg: #efe7ff;
+  --ok: #7fd8a5; --ok-bg: #173527; --warn: #f2c66b; --warn-bg: #3a2c0f; --bad: #ff9aa9; --bad-bg: #42171f;
+  --sim: #c4adff; --sim-bg: #2c2147; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #100d18; --surface: #1b1727; --surface-2: #231e33; --fg: #ece8f6; --muted: #a59dbb; --line: #352e49;
+  --brand: #3a1691; --brand-fg: #ffffff; --lilac: #4b3290; --lilac-fg: #efe7ff;
+  --ok: #7fd8a5; --ok-bg: #173527; --warn: #f2c66b; --warn-bg: #3a2c0f; --bad: #ff9aa9; --bad-bg: #42171f;
+  --sim: #c4adff; --sim-bg: #2c2147; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px; }
+.wrap { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; align-items: flex-start; max-width: 1040px; margin: 0 auto; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--sim); outline-offset: 2px; }
+
+/* Phone */
+.phone { width: 390px; max-width: 100%; height: 760px; max-height: calc(100vh - 48px); min-height: 560px; background: var(--surface);
+  border-radius: 28px; border: 1px solid var(--line); box-shadow: 0 18px 50px rgb(30 10 80 / .18); display: flex; flex-direction: column; overflow: hidden; }
+.appbar { background: var(--brand); color: var(--brand-fg); padding: 14px 16px; display: flex; align-items: center; gap: 10px; min-height: 56px; }
+.appbar h1 { font-size: 17px; font-weight: 700; flex: 1; min-width: 0; }
+.appbar .who { font-size: 12px; opacity: .85; text-align: right; }
+.iconbtn { background: transparent; border: 0; color: inherit; padding: 4px 6px; font-size: 18px; line-height: 1; border-radius: 8px; }
+.screen { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--brand); color: var(--brand-fg); }
+.tabs button { background: transparent; border: 0; padding: 10px 4px 12px; font-size: 12px; opacity: .7; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.tabs button[aria-current="page"] { opacity: 1; font-weight: 700; box-shadow: inset 0 3px 0 var(--lilac); }
+.tabs .ti { font-size: 18px; }
+
+/* Controls */
+.btn { border: 0; border-radius: 999px; padding: 11px 18px; font-weight: 700; letter-spacing: .02em; background: var(--brand); color: var(--brand-fg); }
+.btn.secondary { background: transparent; color: var(--fg); border: 1.5px solid var(--line); }
+.btn.danger { background: var(--bad); color: #fff; }
+.btn.ok { background: var(--ok); color: var(--surface); }
+.btn.small { padding: 7px 12px; font-size: 13px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.field input, .field select, .field textarea { text-transform: none; letter-spacing: 0; font-size: 15px; color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+.chip[aria-pressed="true"] { background: var(--lilac); color: var(--lilac-fg); border-color: transparent; font-weight: 700; }
+
+/* Listing cards */
+.list { display: flex; flex-direction: column; gap: 10px; }
+.card { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; text-align: left; width: 100%;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.card:hover { border-color: var(--sim); }
+.logo { width: 44px; height: 44px; border-radius: 50%; background: var(--lilac); color: var(--lilac-fg); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.card .t { font-weight: 700; }
+.card .s { font-size: 13px; color: var(--muted); }
+.price { text-align: right; font-variant-numeric: tabular-nums; }
+.price b { display: block; font-size: 17px; }
+.price s { font-size: 12px; color: var(--muted); }
+.disc { display: inline-block; font-size: 12px; font-weight: 700; color: var(--ok); }
+
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.sim { background: var(--sim-bg); color: var(--sim); }
+.pill.brand { background: var(--lilac); color: var(--lilac-fg); }
+
+.hero { background: var(--lilac); color: var(--lilac-fg); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 4px; }
+.hero .big { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+.note { border-radius: 12px; padding: 10px 12px; font-size: 13px; background: var(--surface-2); }
+.note.warn { background: var(--warn-bg); color: var(--warn); }
+.note.bad { background: var(--bad-bg); color: var(--bad); }
+.note.ok { background: var(--ok-bg); color: var(--ok); }
+.simbox { border: 1.5px dashed var(--sim); background: var(--sim-bg); color: var(--fg); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.simbox .lbl { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--sim); }
+.code { font-family: var(--mono); font-size: 22px; letter-spacing: .08em; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; word-break: break-all; }
+.timer { font-family: var(--mono); font-size: 20px; }
+.hist { list-style: none; padding: 0; margin: 0; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+.hist b { color: var(--fg); font-weight: 500; }
+.empty { text-align: center; color: var(--muted); padding: 30px 10px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.section-t { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--sim); animation: spin .8s linear infinite; display: inline-block; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+
+/* Demo desk */
+.desk { flex: 1 1 320px; max-width: 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.desk header h2 { font-size: 22px; }
+.desk header p { margin: 4px 0 0; color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.panel h3 { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.clock { font-family: var(--mono); font-size: 18px; }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+td, th { text-align: left; padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+td code { font-family: var(--mono); font-size: 12px; }
+.log { max-height: 220px; overflow-y: auto; font-size: 12px; display: flex; flex-direction: column; gap: 3px; font-variant-numeric: tabular-nums; }
+.log div { color: var(--muted); }
+.log b { color: var(--fg); font-weight: 500; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; max-width: calc(100% - 32px); box-shadow: 0 8px 24px rgb(0 0 0 / .25); z-index: 20; }
+</style>
+
+<div class="wrap">
+  <div class="phone" id="phone" aria-label="Appen">
+    <div class="appbar" id="appbar"></div>
+    <main class="screen" id="screen"></main>
+    <nav class="tabs" id="tabs"></nav>
+  </div>
+
+  <aside class="desk">
+    <header>
+      <h2>Demopanel</h2>
+      <p>Klickbar prototyp av PRD:t. Allt ligger i webbläsarens minne och nollställs när sidan laddas om. Lila streckade rutor är simulerade.</p>
+    </header>
+
+    <section class="panel">
+      <h3>Simulerad tid <span class="pill sim">Simulerat</span></h3>
+      <div class="clock" id="clock"></div>
+      <div class="row">
+        <button class="btn small secondary" data-act="clock" data-ms="60000">+1 min</button>
+        <button class="btn small secondary" data-act="clock" data-ms="300000">+5 min</button>
+        <button class="btn small secondary" data-act="clock" data-ms="86400000">+1 dag</button>
+      </div>
+      <div class="s" style="font-size:13px;color:var(--muted)">Reservation 5 min · reklamationsperiod 24 h · annonser går ut efter giltighetsdagens slut.</div>
+    </section>
+
+    <section class="panel">
+      <h3>Logga in som <span class="pill">Demogenväg</span></h3>
+      <div class="row" id="quick"></div>
+    </section>
+
+    <section class="panel">
+      <h3>Konkurrensscenario</h3>
+      <div style="font-size:13px;color:var(--muted)">Kalle och Lisa trycker "Köp" på samma annons i exakt samma ögonblick. Reservationen är atomär, så bara en lyckas.</div>
+      <div class="row"><button class="btn small" data-act="race">Kör två samtidiga köp</button></div>
+    </section>
+
+    <section class="panel">
+      <h3>Simulerad butikskontroll <span class="pill sim">Simulerat</span></h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Koden börjar med</th><th>Vid publicering</th><th>Vid köp</th></tr></thead>
+        <tbody>
+          <tr><td><code>OGILTIG</code></td><td>Ogiltig</td><td>Ogiltig</td></tr>
+          <tr><td><code>ANVAND</code></td><td>Giltig</td><td>Ogiltig (säljaren har använt kortet)</td></tr>
+          <tr><td><code>DELVIS</code></td><td>Giltig</td><td>Saldo 200 kr lägre</td></tr>
+          <tr><td><code>TIMEOUT</code></td><td>Inget svar</td><td>Inget svar</td></tr>
+          <tr><td>allt annat</td><td>Giltig</td><td>Giltig</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section class="panel">
+      <h3>Statushistorik</h3>
+      <div class="log" id="log"></div>
+    </section>
+  </aside>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const MERCHANTS = { NK: "Nordiska Kompagniet", AH: "Åhléns", FS: "Filmstaden", CO: "Clas Ohlson", ICA: "ICA" };
+const DAY = 86400000, RES_MS = 5 * 60000, CLAIM_MS = DAY;
+const S = {
+  now: Date.parse("2026-11-17T12:00:00+01:00"),
+  users: {
+    sara:  { id: "sara",  name: "Sara Lind",   phone: "0701234567", role: "user",  payout: 0 },
+    kalle: { id: "kalle", name: "Kalle Berg",  phone: "0707654321", role: "user",  payout: 0 },
+    lisa:  { id: "lisa",  name: "Lisa Ek",     phone: "0731112233", role: "user",  payout: 0 },
+    admin: { id: "admin", name: "Demoadmin",   phone: "0700000000", role: "admin", payout: 0 }
+  },
+  user: null, view: "login", sel: null, filter: "", sort: "disc",
+  login: { step: "phone", phone: "", sms: null, err: "" },
+  listings: [], purchases: [], log: [], used: new Set(), busy: false, msg: null
+};
+let seq = 1;
+const id = p => p + (seq++);
+
+/* ---------- helpers ---------- */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const kr = n => n.toLocaleString("sv-SE") + " kr";
+const fmt = ms => new Date(ms).toLocaleString("sv-SE", { timeZone: "Europe/Stockholm", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+const dateStr = ms => new Date(ms).toLocaleDateString("sv-SE", { timeZone: "Europe/Stockholm" });
+const endOf = d => Date.parse(d + "T23:59:59+01:00");
+const daysLeft = l => Math.ceil((endOf(l.validTo) - S.now) / DAY);
+const discount = l => ({ kr: l.balance - l.price, pct: Math.round((1 - l.price / l.balance) * 100) });
+const me = () => S.users[S.user];
+const L = lid => S.listings.find(l => l.id === lid);
+const P = pid => S.purchases.find(p => p.id === pid);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function setStatus(obj, status, actor, reason) {
+  const from = obj.status;
+  obj.status = status;
+  const e = { at: S.now, from, to: status, actor, reason: reason || "" };
+  obj.history.push(e);
+  const what = obj.listingId ? "Köp " + obj.id : "Annons " + obj.id;
+  S.log.unshift({ at: S.now, text: `${what}: ${from || "–"} → ${status}${reason ? " (" + reason + ")" : ""}`, actor });
+}
+function toast(t) {
+  const el = document.getElementById("toast");
+  el.textContent = t; el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 3200);
+}
+
+/* ---------- simulated adapters ---------- */
+async function verify(code, declared, phase) {
+  await sleep(700);
+  const c = code.toUpperCase();
+  if (c.startsWith("OGILTIG")) return { result: "invalid" };
+  if (c.startsWith("TIMEOUT")) return { result: "timeout" };
+  if (phase === "purchase") {
+    if (c.startsWith("ANVAND")) return { result: "invalid" };
+    if (c.startsWith("DELVIS")) return { result: "valid", balance: declared - 200 };
+  }
+  return { result: "valid", balance: declared };
+}
+const payment = {
+  async authorize(approve) { await sleep(600); return approve ? "authorized" : "declined"; },
+  capture(p) { p.captured = true; }, void(p) { p.voided = true; }, refund(p) { p.refunded = true; }
+};
+
+/* ---------- domain ---------- */
+function seed() {
+  const add = (seller, m, code, balance, price, validTo) => {
+    const l = { id: id("A"), seller, merchant: m, code, balance, price, validTo, status: null, flag: "", reservedBy: null, reservedUntil: 0, history: [] };
+    setStatus(l, "Aktiv", seller, "kontrollerad vid publicering");
+    S.listings.push(l); S.used.add(m + "|" + code.toUpperCase());
+  };
+  add("sara", "NK", "NK-4471-9920", 1000, 850, "2027-06-30");
+  add("sara", "AH", "AH-2210-5531", 500, 400, "2026-11-21");
+  add("lisa", "FS", "FS-7781-0042", 300, 240, "2027-02-14");
+  add("lisa", "ICA", "DELVIS-ICA-3301", 1000, 880, "2027-03-31");
+  add("sara", "CO", "ANVAND-CO-1182", 250, 200, "2027-01-15");
+  S.log = [];
+}
+
+function reserve(lid, buyer) {
+  const l = L(lid);
+  if (!l || l.status !== "Aktiv") return { ok: false, msg: "Annonsen är redan reserverad eller inte längre tillgänglig." };
+  if (l.seller === buyer) return { ok: false, msg: "Du kan inte köpa din egen annons." };
+  l.reservedBy = buyer; l.reservedUntil = S.now + RES_MS;
+  setStatus(l, "Reserverad", buyer, "reserverad i 5 min");
+  const p = { id: id("K"), listingId: lid, buyer, amount: l.price, status: null, reason: "", history: [], deliveredAt: 0, complaint: "", credited: false, paid: false };
+  setStatus(p, "Påbörjat", buyer, "belopp låst till " + kr(l.price));
+  S.purchases.push(p);
+  return { ok: true, p };
+}
+function failPurchase(p, reason, listingStatus, flag) {
+  const l = L(p.listingId);
+  if (p.status === "Betalning auktoriserad") payment.void(p);
+  p.reason = reason;
+  setStatus(p, "Misslyckat", "system", reason);
+  l.reservedBy = null; l.flag = flag || "";
+  setStatus(l, listingStatus, "system", reason);
+}
+async function pay(pid, approve) {
+  const p = P(pid), l = L(p.listingId);
+  if (p.status !== "Påbörjat") return;
+  S.busy = "Väntar på simulerad betalning…"; render();
+  const res = await payment.authorize(approve);
+  if (p.status !== "Påbörjat") { S.busy = false; render(); return; } // reservation expired meanwhile; late answer ignored
+  if (res === "declined") { S.busy = false; failPurchase(p, "betalningen nekades", "Aktiv"); render(); return; }
+  setStatus(p, "Betalning auktoriserad", "system", "simulerad auktorisering");
+  S.busy = "Kontrollerar kortet hos butiken (simulerat)…"; render();
+  const v = await verify(l.code, l.balance, "purchase");
+  S.busy = false;
+  if (p.status !== "Betalning auktoriserad") { render(); return; }
+  if (S.now > endOf(l.validTo)) failPurchase(p, "kortet har gått ut", "Utgången");
+  else if (v.result === "invalid") failPurchase(p, "butiken godkände inte koden", "Flaggad", "ogiltig kod");
+  else if (v.result === "timeout") failPurchase(p, "butikskontrollen svarade inte", "Aktiv");
+  else if (v.balance < l.balance) failPurchase(p, `saldoavvikelse: butiken anger ${kr(v.balance)}`, "Flaggad", `saldoavvikelse (${kr(v.balance)} enligt butiken)`);
+  else {
+    payment.capture(p); p.paid = true; p.deliveredAt = S.now;
+    setStatus(p, "Levererat", "system", "betalning dragen, kod levererad");
+    l.reservedBy = null; setStatus(l, "Såld", "system");
+  }
+  render();
+}
+function complete(p, actor, reason) {
+  if (p.credited) return;
+  p.credited = true; S.users[L(p.listingId).seller].payout += p.amount;
+  setStatus(p, "Avslutat", actor, reason);
+}
+function tick() {
+  for (const p of S.purchases) {
+    const l = L(p.listingId);
+    if ((p.status === "Påbörjat" || p.status === "Betalning auktoriserad")) {
+      if (S.now > endOf(l.validTo)) failPurchase(p, "kortet har gått ut", "Utgången");
+      else if (S.now > l.reservedUntil) failPurchase(p, "reservationen gick ut", "Aktiv");
+    }
+    if (p.status === "Levererat" && S.now >= p.deliveredAt + CLAIM_MS) complete(p, "system", "reklamationsperioden löpte ut");
+  }
+  for (const l of S.listings) if ((l.status === "Aktiv" || l.status === "Flaggad") && S.now > endOf(l.validTo)) setStatus(l, "Utgången", "system", "giltighetsdatum passerat");
+}
+
+/* ---------- views ---------- */
+const statusPill = s => {
+  const cls = { "Aktiv": "ok", "Levererat": "ok", "Avslutat": "ok", "Reserverad": "warn", "Påbörjat": "warn", "Betalning auktoriserad": "warn", "Tvist": "warn", "Flaggad": "bad", "Misslyckat": "bad", "Utgången": "", "Återkallad": "", "Såld": "brand", "Återbetalat": "" }[s] ?? "";
+  return `<span class="pill ${cls}">${esc(s)}</span>`;
+};
+const logo = m => `<div class="logo" aria-hidden="true">${esc(m)}</div>`;
+const hist = h => `<ul class="hist">${h.map(e => `<li>${fmt(e.at)} · <b>${esc(e.to)}</b>${e.reason ? " – " + esc(e.reason) : ""}</li>`).join("")}</ul>`;
+
+function vLogin() {
+  const g = S.login;
+  if (g.step === "phone") return `
+    <div class="stack" style="margin-top:30px">
+      <h2 style="font-size:24px">Logga in</h2>
+      <p style="margin:0;color:var(--muted)">Köp presentkort med rabatt, eller sälj kort du inte använder.</p>
+      <label class="field">Mobilnummer<input id="f-phone" inputmode="tel" placeholder="070 000 00 00" value="${esc(g.phone)}"></label>
+      ${g.err ? `<div class="note bad">${esc(g.err)}</div>` : ""}
+      <button class="btn" data-act="reqcode">Begär inloggningskod</button>
+    </div>`;
+  if (g.step === "create") return `
+    <div class="stack" style="margin-top:30px">
+      <h2 style="font-size:24px">Skapa konto</h2>
+      <p style="margin:0;color:var(--muted)">Det finns inget konto för ${esc(g.phone)}.</p>
+      <label class="field">Förnamn<input id="f-first"></label>
+      <label class="field">Efternamn<input id="f-last"></label>
+      ${g.err ? `<div class="note bad">${esc(g.err)}</div>` : ""}
+      <button class="btn" data-act="create">Gå vidare</button>
+      <button class="btn secondary" data-act="cancellogin">Avbryt</button>
+    </div>`;
+  return `
+    <div class="stack" style="margin-top:30px">
+      <h2 style="font-size:24px">Ange koden</h2>
+      <div class="simbox"><span class="lbl">Simulerat SMS till ${esc(g.phone)}</span><div>Din inloggningskod är <b style="font-family:var(--mono);font-size:18px">${g.sms}</b></div></div>
+      <label class="field">Inloggningskod<input id="f-code" inputmode="numeric" maxlength="6"></label>
+      ${g.err ? `<div class="note bad">${esc(g.err)}</div>` : ""}
+      <button class="btn" data-act="login">Logga in</button>
+      <button class="btn secondary" data-act="cancellogin">Avbryt</button>
+    </div>`;
+}
+
+function vMarket() {
+  let ls = S.listings.filter(l => l.status === "Aktiv" && l.seller !== S.user && (!S.filter || l.merchant === S.filter));
+  const sorters = { disc: (a, b) => discount(b).pct - discount(a).pct, price: (a, b) => a.price - b.price, valid: (a, b) => endOf(b.validTo) - endOf(a.validTo) };
+  ls.sort(sorters[S.sort]);
+  return `
+    <div class="chips" role="group" aria-label="Filtrera på handlare">
+      <button class="chip" data-act="filter" data-m="" aria-pressed="${!S.filter}">Alla</button>
+      ${Object.keys(MERCHANTS).map(m => `<button class="chip" data-act="filter" data-m="${m}" aria-pressed="${S.filter === m}">${esc(MERCHANTS[m])}</button>`).join("")}
+    </div>
+    <label class="field">Sortera<select id="f-sort">
+      <option value="disc" ${S.sort === "disc" ? "selected" : ""}>Högst rabatt</option>
+      <option value="price" ${S.sort === "price" ? "selected" : ""}>Lägst pris</option>
+      <option value="valid" ${S.sort === "valid" ? "selected" : ""}>Längst giltighet</option>
+    </select></label>
+    ${ls.length ? `<div class="list">${ls.map(l => {
+      const d = discount(l), dl = daysLeft(l);
+      return `<button class="card" data-act="open" data-id="${l.id}">
+        ${logo(l.merchant)}
+        <div><div class="t">${esc(MERCHANTS[l.merchant])}</div>
+          <div class="s">Saldo ${kr(l.balance)} · t.o.m. ${esc(l.validTo)}</div>
+          <div class="row" style="margin-top:4px"><span class="pill sim">Kontrollerad (simulerat)</span>${dl < 7 ? `<span class="pill warn">${dl} dagar kvar</span>` : ""}</div></div>
+        <div class="price"><b>${kr(l.price)}</b><span class="disc">−${d.pct} %</span></div>
+      </button>`; }).join("")}</div>`
+    : `<div class="empty"><div>Inga erbjudanden för det här urvalet just nu.</div><button class="btn secondary small" data-act="filter" data-m="">Visa alla handlare</button></div>`}`;
+}
+
+function vDetail() {
+  const l = L(S.sel); if (!l) return "";
+  const d = discount(l), dl = daysLeft(l), own = l.seller === S.user;
+  const myP = S.purchases.filter(p => p.listingId === l.id && p.buyer === S.user).at(-1);
+  let actions = "";
+  if (own) {
+    actions = `<div class="section-t">Din annons</div>`;
+    if (l.status === "Aktiv") actions += `
+      <label class="field">Nytt pris (kr)<input id="f-newprice" type="number" min="1" value="${l.price}"></label>
+      <div class="row"><button class="btn small" data-act="saveprice">Spara pris</button><button class="btn small secondary" data-act="withdraw">Återkalla annonsen</button></div>`;
+    else if (l.status === "Flaggad") actions += `
+      <div class="note bad">Flaggad: ${esc(l.flag)}. Annonsen syns inte i sökningen tills du rättar den.</div>
+      <label class="field">Rättat saldo (kr)<input id="f-newbal" type="number" min="1" value="${l.balance}"></label>
+      <label class="field">Pris (kr)<input id="f-newprice" type="number" min="1" value="${l.price}"></label>
+      <div class="row"><button class="btn small" data-act="fix">Kontrollera och publicera igen</button><button class="btn small secondary" data-act="withdraw">Återkalla</button></div>`;
+    else actions += `<div class="note">Annonsen är ${esc(l.status.toLowerCase())} och kan inte ändras.</div>`;
+  } else if (l.status === "Aktiv") {
+    actions = `<button class="btn" data-act="buy">Köp för ${kr(l.price)}</button>`;
+  } else if (myP && ["Påbörjat", "Betalning auktoriserad"].includes(myP.status)) {
+    actions = `<button class="btn" data-act="openp" data-id="${myP.id}">Fortsätt till betalning</button>`;
+  } else {
+    actions = `<div class="note warn">Annonsen är ${esc(l.status.toLowerCase())} och kan inte köpas just nu.</div>`;
+  }
+  return `
+    <div class="hero"><div class="row" style="justify-content:space-between"><b>${esc(MERCHANTS[l.merchant])}</b>${statusPill(l.status)}</div>
+      <div class="big">${kr(l.price)}</div><div>Du sparar ${kr(d.kr)} (${d.pct} %) på ett kort värt ${kr(l.balance)}</div></div>
+    <dl class="kv">
+      <dt>Saldo enligt säljaren</dt><dd>${kr(l.balance)}</dd>
+      <dt>Giltigt till och med</dt><dd>${esc(l.validTo)}</dd>
+      <dt>Kontroll</dt><dd><span class="pill sim">Kontrollerad (simulerat)</span></dd>
+      <dt>Säljare</dt><dd>${esc(S.users[l.seller].name.split(" ")[0])}</dd>
+    </dl>
+    ${dl < 7 && dl >= 0 ? `<div class="note warn">Kortet går ut om ${dl} dagar. Använd det snart efter köpet.</div>` : ""}
+    ${!own ? `<div class="note">Koden visas först när köpet är klart. Kortet kontrolleras igen hos butiken innan pengarna dras, men ett saldobesked är ingen garanti vid inlösen. Fungerar koden inte kan du reklamera inom 24 timmar.</div>` : `<label class="field">Kod (bara synlig för dig)<div class="code" style="font-size:16px">${esc(l.code)}</div></label>`}
+    ${actions}
+    <div class="section-t">Historik</div>${hist(l.history)}`;
+}
+
+function vCheckout() {
+  const p = P(S.sel), l = L(p.listingId);
+  const left = Math.max(0, l.reservedUntil - S.now), mm = String(Math.floor(left / 60000)).padStart(2, "0"), ss = String(Math.floor(left % 60000 / 1000)).padStart(2, "0");
+  let body = "";
+  if (p.status === "Påbörjat" || p.status === "Betalning auktoriserad") {
+    body = `
+      <div class="note warn row" style="justify-content:space-between"><span>Annonsen är reserverad åt dig</span><span class="timer">${mm}:${ss}</span></div>
+      <dl class="kv"><dt>${esc(MERCHANTS[l.merchant])}, saldo</dt><dd>${kr(l.balance)}</dd><dt>Att betala</dt><dd><b>${kr(p.amount)}</b></dd></dl>
+      ${S.busy ? `<div class="simbox"><span class="lbl">Simulerat</span><div><span class="spinner"></span> ${esc(S.busy)}</div></div>` : `
+      <div class="simbox"><span class="lbl">Simulerad betalning</span>
+        <div>Ingen riktig betalning sker. Välj vad betalleverantören ska svara.</div>
+        <div class="row"><button class="btn ok small" data-act="pay" data-ok="1">Godkänn ${kr(p.amount)}</button><button class="btn danger small" data-act="pay" data-ok="0">Neka betalningen</button></div>
+      </div>`}`;
+  } else if (["Levererat", "Avslutat", "Tvist"].includes(p.status)) {
+    const claimLeft = p.deliveredAt + CLAIM_MS - S.now;
+    body = `
+      <div class="note ok">Klart! Visa koden i kassan.</div>
+      <div class="code">${esc(l.code)}</div>
+      <dl class="kv"><dt>Butik</dt><dd>${esc(MERCHANTS[l.merchant])}</dd><dt>Saldo</dt><dd>${kr(l.balance)}</dd><dt>Betalt</dt><dd>${kr(p.amount)}</dd><dt>Giltigt t.o.m.</dt><dd>${esc(l.validTo)}</dd></dl>
+      ${p.status === "Levererat" ? `
+        <div class="note">Fungerar koden inte? Reklamera inom ${Math.max(0, Math.ceil(claimLeft / 3600000))} timmar. Säljaren får betalt när du bekräftar eller när tiden har gått ut.</div>
+        <div class="row"><button class="btn ok small" data-act="confirm">Kortet fungerade</button><button class="btn secondary small" data-act="showclaim">Rapportera fel</button></div>
+        <div id="claim" ${S.claimOpen ? "" : "hidden"} class="stack"><label class="field">Vad hände?<textarea id="f-claim" rows="2" placeholder="Kassan sa att koden redan är använd"></textarea></label><button class="btn danger small" data-act="claim">Skicka reklamation</button></div>
+        <button class="btn secondary small" data-act="dupcallback" title="Visar att ett dubblerat betalningsbesked inte ger dubbel dragning">Demo: skicka betalningsbeskedet igen</button>` : ""}
+      ${p.status === "Tvist" ? `<div class="note warn">Reklamation mottagen. Utbetalningen till säljaren är fryst tills en administratör har beslutat.</div>` : ""}`;
+  } else if (p.status === "Återbetalat") {
+    body = `<div class="note">Köpet är återbetalat (simulerat). Koden visas inte längre.</div><dl class="kv"><dt>Återbetalt</dt><dd>${kr(p.amount)}</dd></dl>`;
+  } else {
+    body = `<div class="note bad"><b>Köpet genomfördes inte.</b> Orsak: ${esc(p.reason)}. Inga pengar har dragits och ingen kod har lämnats ut.</div>
+      <button class="btn secondary" data-act="tab" data-v="market">Tillbaka till erbjudanden</button>`;
+  }
+  return `<div class="row" style="justify-content:space-between"><b>Köp ${esc(p.id)}</b>${statusPill(p.status)}</div>${body}
+    <div class="section-t">Historik</div>${hist(p.history)}`;
+}
+
+function vSell() {
+  const m = S.msg;
+  return `
+    <h2 style="font-size:20px">Sälj ett presentkort</h2>
+    <label class="field">Butik<select id="s-m">${Object.entries(MERCHANTS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("")}</select></label>
+    <label class="field">Kod på kortet<input id="s-code" placeholder="t.ex. NK-1234-5678" autocomplete="off"></label>
+    <div class="row" style="gap:10px">
+      <label class="field" style="flex:1">Saldo (kr)<input id="s-bal" type="number" min="1" value="500"></label>
+      <label class="field" style="flex:1">Ditt pris (kr)<input id="s-price" type="number" min="1" value="425"></label>
+    </div>
+    <label class="field">Giltigt till och med<input id="s-valid" type="date" value="2027-05-31"></label>
+    <div class="note" id="s-hint">Priset måste vara lägre än saldot. Koden visas bara för köparen efter köpet.</div>
+    ${S.busy ? `<div class="simbox"><span class="lbl">Simulerat</span><div><span class="spinner"></span> ${esc(S.busy)}</div></div>` : `<button class="btn" data-act="publish">Kontrollera och publicera</button>`}
+    ${m ? `<div class="note ${m.cls}">${esc(m.text)}</div>` : ""}`;
+}
+
+function vMine() {
+  const mine = S.listings.filter(l => l.seller === S.user);
+  const bought = S.purchases.filter(p => p.buyer === S.user);
+  const u = me();
+  return `
+    <div class="simbox"><span class="lbl">Simulerad utbetalning</span><div class="row" style="justify-content:space-between"><span>Ditt saldo från sålda kort</span><b style="font-size:20px">${kr(u.payout)}</b></div></div>
+    <div class="section-t">Köpta kort</div>
+    ${bought.length ? `<div class="list">${bought.slice().reverse().map(p => { const l = L(p.listingId); return `
+      <button class="card" data-act="openp" data-id="${p.id}">${logo(l.merchant)}
+        <div><div class="t">${esc(MERCHANTS[l.merchant])}</div><div class="s">Saldo ${kr(l.balance)} · köpt för ${kr(p.amount)}</div></div>
+        <div>${statusPill(p.status)}</div></button>`; }).join("")}</div>`
+      : `<div class="empty" style="padding:12px">Du har inte köpt några kort. <button class="btn small secondary" data-act="tab" data-v="market">Hitta erbjudanden</button></div>`}
+    <div class="section-t">Mina annonser</div>
+    ${mine.length ? `<div class="list">${mine.map(l => `
+      <button class="card" data-act="open" data-id="${l.id}">${logo(l.merchant)}
+        <div><div class="t">${esc(MERCHANTS[l.merchant])}</div><div class="s">${kr(l.price)} för ${kr(l.balance)}${l.flag && l.status === "Flaggad" ? " · " + esc(l.flag) : ""}${l.status === "Utgången" ? " · giltighetsdatum passerat" : ""}</div></div>
+        <div>${statusPill(l.status)}</div></button>`).join("")}</div>`
+      : `<div class="empty" style="padding:12px">Du har inga annonser. <button class="btn small secondary" data-act="tab" data-v="sell">Sälj ett kort</button></div>`}`;
+}
+
+function vAdmin() {
+  const ds = S.purchases.filter(p => p.status === "Tvist");
+  return `<h2 style="font-size:20px">Tvister</h2>
+    ${ds.length ? ds.map(p => { const l = L(p.listingId); return `
+      <div class="stack" style="border:1px solid var(--line);border-radius:14px;padding:12px">
+        <div class="row" style="justify-content:space-between"><b>${esc(MERCHANTS[l.merchant])} · ${kr(p.amount)}</b>${statusPill(p.status)}</div>
+        <div class="s" style="font-size:13px;color:var(--muted)">Köpare ${esc(S.users[p.buyer].name)} · säljare ${esc(S.users[l.seller].name)}</div>
+        <div class="note">"${esc(p.complaint)}"</div>
+        ${hist(p.history)}
+        <div class="row"><button class="btn small" data-act="refund" data-id="${p.id}">Återbetala köparen</button><button class="btn small secondary" data-act="reject" data-id="${p.id}">Avslå</button></div>
+      </div>`; }).join("") : `<div class="empty">Inga öppna tvister.</div>`}`;
+}
+
+/* ---------- render ---------- */
+function render() {
+  const u = me();
+  const titles = { login: "Presentkortsmarknaden", market: "Erbjudanden", detail: "Erbjudande", checkout: "Köp", sell: "Sälj", mine: "Mina kort", admin: "Tvister" };
+  const back = ["detail", "checkout"].includes(S.view);
+  document.getElementById("appbar").innerHTML =
+    `${back ? `<button class="iconbtn" data-act="back" aria-label="Tillbaka">←</button>` : ""}<h1>${titles[S.view]}</h1>` +
+    (u ? `<div class="who">${esc(u.name)}<br><button class="iconbtn" style="font-size:12px;padding:0;text-decoration:underline" data-act="logout">Logga ut</button></div>` : "");
+  const views = { login: vLogin, market: vMarket, detail: vDetail, checkout: vCheckout, sell: vSell, mine: vMine, admin: vAdmin };
+  const scr = document.getElementById("screen");
+  const keep = scr.scrollTop;
+  const focusId = document.activeElement && document.activeElement.id;
+  const vals = {}; scr.querySelectorAll("input,select,textarea").forEach(e => { if (e.id) vals[e.id] = e.value; });
+  scr.innerHTML = views[S.view]();
+  scr.querySelectorAll("input,select,textarea").forEach(e => { if (e.id in vals && e.id !== "f-sort") e.value = vals[e.id]; });
+  if (focusId) { const f = document.getElementById(focusId); if (f) f.focus(); }
+  scr.scrollTop = keep;
+  const tabs = u ? [["market", "⌕", "Köp"], ["sell", "+", "Sälj"], ["mine", "▤", "Mina kort"]].concat(u.role === "admin" ? [["admin", "⚖", "Tvister"]] : []) : [];
+  const active = S.view === "detail" || S.view === "checkout" ? null : S.view;
+  document.getElementById("tabs").innerHTML = tabs.map(([v, i, t]) => `<button data-act="tab" data-v="${v}" ${active === v ? 'aria-current="page"' : ""}><span class="ti" aria-hidden="true">${i}</span>${t}</button>`).join("");
+  document.getElementById("clock").textContent = fmt(S.now) + ":" + String(new Date(S.now).getSeconds()).padStart(2, "0");
+  document.getElementById("quick").innerHTML = Object.values(S.users).map(x => `<button class="btn small ${S.user === x.id ? "" : "secondary"}" data-act="as" data-id="${x.id}">${esc(x.name.split(" ")[0])}</button>`).join("");
+  document.getElementById("log").innerHTML = S.log.length ? S.log.slice(0, 60).map(e => `<div>${fmt(e.at).slice(11)} <b>${esc(e.text)}</b> · ${esc(S.users[e.actor]?.name.split(" ")[0] || e.actor)}</div>`).join("") : `<div>Inga händelser än. Publicera eller köp ett kort.</div>`;
+}
+
+/* ---------- actions ---------- */
+const val = i => (document.getElementById(i)?.value ?? "").trim();
+const go = (v, sel) => { S.view = v; if (sel !== undefined) S.sel = sel; S.msg = null; S.claimOpen = false; document.getElementById("screen").innerHTML = ""; document.getElementById("screen").scrollTop = 0; render(); };
+
+const A = {
+  reqcode() {
+    const ph = val("f-phone").replace(/\D/g, "");
+    if (!/^07\d{8}$/.test(ph)) { S.login.err = "Ange ett svenskt mobilnummer, t.ex. 070 123 45 67."; return render(); }
+    S.login = { step: "code", phone: ph, sms: String(100000 + Math.floor(Math.random() * 900000)), err: "" };
+    if (!Object.values(S.users).some(u => u.phone === ph)) S.login.step = "create";
+    render();
+  },
+  create() {
+    const f = val("f-first"), l = val("f-last");
+    if (!f || !l) { S.login.err = "Fyll i förnamn och efternamn."; return render(); }
+    const uid = id("u"); S.users[uid] = { id: uid, name: f + " " + l, phone: S.login.phone, role: "user", payout: 0 };
+    S.login.step = "code"; S.login.err = ""; render();
+  },
+  login() {
+    if (val("f-code") !== S.login.sms) { S.login.err = "Fel kod. Kontrollera SMS:et eller begär en ny kod."; return render(); }
+    S.user = Object.values(S.users).find(u => u.phone === S.login.phone).id;
+    S.login = { step: "phone", phone: "", sms: null, err: "" }; go("market");
+  },
+  cancellogin() { S.login = { step: "phone", phone: "", sms: null, err: "" }; render(); },
+  logout() { S.user = null; go("login"); },
+  as(e) { S.user = e.dataset.id; go(S.users[S.user].role === "admin" ? "admin" : "market"); },
+  tab(e) { go(e.dataset.v); },
+  back() { go(S.view === "checkout" ? "mine" : (L(S.sel)?.seller === S.user ? "mine" : "market")); },
+  filter(e) { S.filter = e.dataset.m; render(); },
+  open(e) { go("detail", e.dataset.id); },
+  openp(e) { go("checkout", e.dataset.id); },
+  buy() {
+    const r = reserve(S.sel, S.user);
+    if (!r.ok) { toast(r.msg); return render(); }
+    go("checkout", r.p.id);
+  },
+  pay(e) { pay(S.sel, e.dataset.ok === "1"); },
+  confirm() { complete(P(S.sel), S.user, "köparen bekräftade"); toast("Tack! Säljaren har fått betalt (simulerat)."); render(); },
+  showclaim() { S.claimOpen = true; render(); document.getElementById("f-claim").focus(); },
+  claim() {
+    const p = P(S.sel), t = val("f-claim");
+    if (!t) return toast("Beskriv kort vad som hände.");
+    if (p.status !== "Levererat") return toast("Köpet kan inte reklameras i nuvarande status.");
+    p.complaint = t; setStatus(p, "Tvist", S.user, "köparen reklamerade"); render();
+  },
+  dupcallback() { toast("Betalningsbeskedet för " + S.sel + " är redan behandlat. Ingen ny dragning, ingen ny leverans."); S.log.unshift({ at: S.now, text: "Köp " + S.sel + ": dubblerat betalningsbesked ignorerat", actor: "system" }); render(); },
+  refund(e) { const p = P(e.dataset.id); payment.refund(p); setStatus(p, "Återbetalat", "admin", "administratören beviljade reklamationen"); toast("Köparen har fått tillbaka pengarna (simulerat)."); render(); },
+  reject(e) { complete(P(e.dataset.id), "admin", "administratören avslog reklamationen"); toast("Reklamationen avslogs. Säljaren har fått betalt (simulerat)."); render(); },
+  async publish() {
+    const m = val("s-m"), code = val("s-code"), bal = +val("s-bal"), price = +val("s-price"), valid = val("s-valid");
+    const err = t => { S.msg = { cls: "bad", text: t }; render(); };
+    if (!code) return err("Ange koden som står på kortet.");
+    if (!(bal > 0)) return err("Ange kortets saldo.");
+    if (!(price > 0 && price < bal)) return err(`Priset måste vara större än 0 och lägre än saldot (${kr(bal)}).`);
+    if (!valid || S.now > endOf(valid)) return err("Kortets giltighetsdatum har redan passerat.");
+    if (S.used.has(m + "|" + code.toUpperCase())) return err("Den här koden har redan lagts ut på marknadsplatsen och kan inte publiceras igen.");
+    S.busy = "Kontrollerar kortet hos butiken (simulerat)…"; S.msg = null; render();
+    const v = await verify(code, bal, "publish"); S.busy = false;
+    if (v.result === "invalid") return err("Butiken godkände inte koden. Kontrollera att du skrivit rätt.");
+    if (v.result === "timeout") return err("Butikskontrollen svarade inte. Försök igen om en stund.");
+    const l = { id: id("A"), seller: S.user, merchant: m, code, balance: bal, price, validTo: valid, status: null, flag: "", reservedBy: null, reservedUntil: 0, history: [] };
+    setStatus(l, "Aktiv", S.user, "kontrollerad vid publicering");
+    S.listings.push(l); S.used.add(m + "|" + code.toUpperCase());
+    toast("Annonsen är publicerad."); go("detail", l.id);
+  },
+  saveprice() {
+    const l = L(S.sel), np = +val("f-newprice");
+    if (l.status !== "Aktiv") return toast("Annonsen kan inte ändras när den är " + l.status.toLowerCase() + ".");
+    if (!(np > 0 && np < l.balance)) return toast(`Priset måste vara större än 0 och lägre än ${kr(l.balance)}.`);
+    const old = l.price; l.price = np;
+    l.history.push({ at: S.now, to: "Aktiv", reason: `pris ändrat ${kr(old)} → ${kr(np)}` });
+    S.log.unshift({ at: S.now, text: `Annons ${l.id}: pris ${kr(old)} → ${kr(np)}`, actor: S.user });
+    toast("Priset är ändrat."); render();
+  },
+  async fix() {
+    const l = L(S.sel), nb = +val("f-newbal"), np = +val("f-newprice");
+    if (!(np > 0 && np < nb)) return toast(`Priset måste vara större än 0 och lägre än saldot (${kr(nb)}).`);
+    toast("Kontrollerar kortet hos butiken (simulerat)…");
+    const v = await verify(l.code, nb, "publish");
+    if (v.result !== "valid") return toast("Kontrollen godkände inte ändringen. Annonsen är oförändrad.");
+    l.balance = nb; l.price = np; l.flag = "";
+    setStatus(l, "Aktiv", S.user, "saldo rättat till " + kr(nb)); render();
+  },
+  withdraw() { const l = L(S.sel); if (!["Aktiv", "Flaggad"].includes(l.status)) return toast("Annonsen kan inte återkallas nu."); setStatus(l, "Återkallad", S.user); render(); },
+  clock(e) { S.now += +e.dataset.ms; tick(); render(); },
+  async race() {
+    const l = S.listings.find(x => x.status === "Aktiv" && x.seller !== "kalle" && x.seller !== "lisa") || S.listings.find(x => x.status === "Aktiv" && x.seller !== "kalle");
+    if (!l) return toast("Det finns ingen aktiv annons att tävla om.");
+    const [a, b] = await Promise.all([Promise.resolve().then(() => reserve(l.id, "kalle")), Promise.resolve().then(() => reserve(l.id, "lisa"))]);
+    toast(`${MERCHANTS[l.merchant]}: Kalle ${a.ok ? "fick reservationen" : "nekades"} · Lisa ${b.ok ? "fick reservationen" : "nekades – " + b.msg}`);
+    render();
+  }
+};
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-act]"); if (!t) return;
+  const f = A[t.dataset.act]; if (f) f(t);
+});
+document.addEventListener("change", e => { if (e.target.id === "f-sort") { S.sort = e.target.value; render(); } });
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter" || !S.login) return;
+  if (e.target.id === "f-phone") A.reqcode(); else if (e.target.id === "f-code") A.login();
+});
+
+seed();
+render();
+setInterval(() => { S.now += 1000; tick(); if (S.view === "checkout" || S.view === "detail") { if (!document.activeElement || !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) render(); else document.getElementById("clock").textContent = fmt(S.now); } else document.getElementById("clock").textContent = fmt(S.now) + ":" + String(new Date(S.now).getSeconds()).padStart(2, "0"); }, 1000);
+</script>
