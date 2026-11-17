@@ -1,15 +1,21 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { listings, purchases } from "@/db/schema";
+import { listings, purchases, users } from "@/db/schema";
 
-/** Purchase statuses after leverans in which the köpare may see the presentkortskod. */
-const BUYER_CODE_STATUSES = ["delivered"] as const;
+/**
+ * Purchase statuses after leverans in which the köpare may see the presentkortskod (FR9):
+ * Levererat, Avslutat and Tvist; an Återbetalat köp no longer shows it.
+ */
+export const BUYER_CODE_STATUSES = ["delivered", "completed", "disputed"] as const;
 
 /**
  * The single function that returns a presentkortskod. The viewer must be the annons's säljare,
- * or the köpare of a köp of it at Levererat. Everyone else gets undefined.
+ * or the köpare of a köp of it in a BUYER_CODE_STATUSES status. The demoadministratör and everyone
+ * else get undefined.
  */
 export function giftCardCodeFor(db: Db, viewerId: number, listingId: number): string | undefined {
+  const viewer = db.select({ role: users.role }).from(users).where(eq(users.id, viewerId)).get();
+  if (!viewer || viewer.role === "admin") return undefined;
   const listing = db
     .select({ sellerId: listings.sellerId, code: listings.giftCardCode })
     .from(listings)

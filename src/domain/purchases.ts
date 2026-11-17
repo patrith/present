@@ -2,13 +2,15 @@ import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import type { VerificationResult } from "@/adapters/gift-card-verifier";
 import type { AuthorizationResult } from "@/adapters/payment-provider";
 import type { Db } from "@/db/client";
-import { listings, merchants, purchases, type PurchaseStatus } from "@/db/schema";
+import { listings, merchants, purchases, users, type PurchaseStatus } from "@/db/schema";
 import type { Deps } from "./deps";
 import { DomainError, isDomainError } from "./errors";
 import { expireDue } from "./expire-due";
 import { checkGiftCard } from "./gift-card-check";
-import { giftCardCodeFor, giftCardCodeForVerification } from "./gift-card-code";
+import { completePurchaseTx } from "./completion";
+import { BUYER_CODE_STATUSES, giftCardCodeFor, giftCardCodeForVerification } from "./gift-card-code";
 import { kronor } from "./money";
+import { purchaseStatusLabel } from "./status";
 import { type FailureCause, failPurchaseTx } from "./purchase-failure";
 import { transition } from "./transition";
 
@@ -265,7 +267,8 @@ export async function deliverPurchase(deps: Deps, purchaseId: number): Promise<P
 }
 
 function toView(db: Db, viewerId: number, row: Omit<PurchaseView, "giftCardCode">): PurchaseView {
-  const giftCardCode = row.status === "delivered" ? giftCardCodeFor(db, viewerId, row.listingId) : undefined;
+  const showsCode = (BUYER_CODE_STATUSES as readonly PurchaseStatus[]).includes(row.status);
+  const giftCardCode = showsCode ? giftCardCodeFor(db, viewerId, row.listingId) : undefined;
   return giftCardCode ? { ...row, giftCardCode } : row;
 }
 
@@ -305,4 +308,151 @@ export function purchasesOfBuyer(db: Db, buyerId: number): PurchaseView[] {
     .orderBy(desc(purchases.id))
     .all()
     .map((row) => toView(db, buyerId, row));
+}
+
+// ---------- After leverans: avslut, reklamation and tvist (FR6, FR7) ----------
+
+/** Where a bekräftelse led. `unchanged`: the köp had already left Levererat, with its current status. */
+export type SettleOutcome = { kind: "settled"; status: PurchaseStatus } | { kind: "unchanged"; status: PurchaseStatus };
+
+const BUYER_CONFIRMED = "köparen bekräftade";
+const BUYER_CLAIMED = "köparen reklamerade";
+const ADMIN_REFUNDED = "administratören beviljade reklamationen";
+const ADMIN_REJECTED = "administratören avslog reklamationen";
+
+/**
+ * "Kortet fungerade": the köpare completes a Levererat köp, crediting the säljare once. Anyone but
+ * the köpare is refused; a köp no longer Levererat (a repeat, or the period lapsed first) returns
+ * its current status and changes nothing.
+ */
+export async function confirmPurchase(deps: Deps, buyerId: number, purchaseId: number): Promise<SettleOutcome> {
+  // One instant for the time rules and the transition, so the period cannot lapse in between.
+  const now = deps.clock.now();
+  await expireDue(deps, now);
+  const purchase = purchaseOwnedBy(deps.db, buyerId, purchaseId);
+  const completed = completePurchaseTx(
+    deps.db,
+    purchase,
+    { from: "delivered", actorUserId: buyerId, reason: BUYER_CONFIRMED },
+    now,
+  );
+  return completed ? { kind: "settled", status: "completed" } : { kind: "unchanged", status: purchaseById(deps.db, purchaseId).status };
+}
+
+function notClaimable(status: PurchaseStatus): DomainError {
+  return new DomainError(
+    "wrong_purchase_status",
+    `Köpet kan inte reklameras när det är ${purchaseStatusLabel[status]}.`,
+  );
+}
+
+/**
+ * Reklamation: the köpare reports, with a motivering, that the code did not work. Time rules run
+ * first, so a köp past its reklamationsperiod is already Avslutat and refused. A Levererat köp
+ * becomes Tvist with the motivering stored; nobody is credited or refunded until the
+ * demoadministratör decides.
+ */
+export async function claimPurchase(
+  deps: Deps,
+  buyerId: number,
+  purchaseId: number,
+  motivation: string,
+): Promise<void> {
+  // One instant for the time rules and the transition: a reklamation is judged at the moment it
+  // arrived, so it cannot become Tvist after its reklamationsperiod has run out.
+  const now = deps.clock.now();
+  await expireDue(deps, now);
+  const purchase = purchaseOwnedBy(deps.db, buyerId, purchaseId);
+  const claimReason = motivation.trim();
+  if (!claimReason) {
+    throw new DomainError("invalid_input", "Beskriv vad som hände med koden.", "claimReason");
+  }
+  if (purchase.status !== "delivered") throw notClaimable(purchase.status);
+  try {
+    transition(deps.db, {
+      entity: "purchase",
+      id: purchaseId,
+      from: "delivered",
+      to: "disputed",
+      actorUserId: buyerId,
+      reason: BUYER_CLAIMED,
+      at: now,
+      set: { claimReason },
+    });
+  } catch (e) {
+    if (isDomainError(e) && e.code === "transition_conflict") throw notClaimable(purchaseById(deps.db, purchaseId).status);
+    throw e;
+  }
+}
+
+export type DisputeDecision = "refund" | "reject";
+
+function requireAdmin(db: Db, userId: number): void {
+  const user = db.select({ role: users.role }).from(users).where(eq(users.id, userId)).get();
+  if (user?.role !== "admin") throw new DomainError("forbidden", "Endast demoadministratören kan hantera tvister.");
+}
+
+/**
+ * The demoadministratör's decision on a tvist: "återbetala" → Återbetalat, then one simulated
+ * återbetalning after commit; "avslå" → Avslutat with the säljare credited. Only the first decision
+ * applies: a second, or one on a köp not in Tvist, is refused and changes nothing.
+ */
+export async function decideDispute(
+  deps: Deps,
+  adminId: number,
+  purchaseId: number,
+  decision: DisputeDecision,
+): Promise<void> {
+  requireAdmin(deps.db, adminId);
+  const purchase = purchaseById(deps.db, purchaseId);
+  const alreadyDecided = new DomainError("wrong_purchase_status", "Tvisten är redan avgjord.");
+  const now = deps.clock.now();
+  if (decision === "reject") {
+    const cause = { from: "disputed", actorUserId: adminId, reason: ADMIN_REJECTED, adminDecision: "reject" } as const;
+    if (!completePurchaseTx(deps.db, purchase, cause, now)) throw alreadyDecided;
+    return;
+  }
+  try {
+    transition(deps.db, {
+      entity: "purchase",
+      id: purchaseId,
+      from: "disputed",
+      to: "refunded",
+      actorUserId: adminId,
+      reason: ADMIN_REFUNDED,
+      at: now,
+      set: { adminDecision: "refund" },
+    });
+  } catch (e) {
+    if (isDomainError(e) && e.code === "transition_conflict") throw alreadyDecided;
+    throw e;
+  }
+  // After commit, as leverans's dragning: the simulated återbetalning of the köp's belopp.
+  await deps.payments.refund(purchase.authorizationId!);
+}
+
+/** The köp page for its köpare: the view plus what the köpare can do and is told in its status. */
+export type PurchasePage = PurchaseView & {
+  /** "Kortet fungerade" and "Rapportera fel": offered while Levererat. */
+  canSettle: boolean;
+  /** While Levererat: when the reklamationsperiod ends. */
+  claimDeadline?: Date;
+  /** While Tvist: the frozen-utbetalning note. */
+  disputeNote?: string;
+  /** While Återbetalat: the simulated återbetalning. */
+  refund?: { label: "Simulerad återbetalning"; amount: number };
+};
+
+const DISPUTE_NOTE =
+  "Reklamation mottagen. Utbetalningen till säljaren är fryst tills demoadministratören har beslutat.";
+
+export function getPurchasePage(deps: Pick<Deps, "db" | "config">, viewerId: number, purchaseId: number): PurchasePage {
+  const view = getPurchaseForBuyer(deps.db, viewerId, purchaseId);
+  const page: PurchasePage = { ...view, canSettle: view.status === "delivered" };
+  if (view.status === "delivered" && view.deliveredAt) {
+    page.claimDeadline = new Date(view.deliveredAt.getTime() + deps.config.claimPeriodMs);
+  }
+  if (view.status === "disputed") page.disputeNote = DISPUTE_NOTE;
+  if (view.status === "refunded") page.refund = { label: "Simulerad återbetalning", amount: view.amount };
+  return page;
 }

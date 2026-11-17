@@ -1,6 +1,7 @@
 import { and, eq, inArray, lte } from "drizzle-orm";
 import { listings, purchases } from "@/db/schema";
 import type { Deps } from "./deps";
+import { completePurchaseTx } from "./completion";
 import { failPurchaseTx } from "./purchase-failure";
 
 /** An adapter call a rule makes after its transaction has committed. */
@@ -55,8 +56,32 @@ function expireReservations(deps: Deps, now: Date): AfterCommit[] {
   return afterCommit;
 }
 
+// S06 – FR6: the reklamationsperiod's lapse completes a Levererat köp.
+const CLAIM_PERIOD_LAPSED = "reklamationsperioden löpte ut";
+
+/**
+ * A Levererat köp whose reklamationsperiod has run out (leverans + period ≤ now) is Avslutat and
+ * its säljare credited, through the one completion function. A Tvist köp is never touched.
+ */
+function completeLapsedClaimPeriods(deps: Deps, now: Date): AfterCommit[] {
+  const deliveredBy = new Date(now.getTime() - deps.config.claimPeriodMs);
+  const due = deps.db
+    .select({ id: purchases.id, listingId: purchases.listingId, amount: purchases.amount })
+    .from(purchases)
+    .where(and(eq(purchases.status, "delivered"), lte(purchases.deliveredAt, deliveredBy)))
+    .all();
+  for (const p of due) {
+    completePurchaseTx(deps.db, p, { from: "delivered", actorUserId: null, reason: CLAIM_PERIOD_LAPSED }, now);
+  }
+  return [];
+}
+
 /** The time rules in the order they apply. Stories add theirs here (ADR-005). */
-export const expiryRules: readonly ExpiryRule[] = [expireReservations];
+export const expiryRules: readonly ExpiryRule[] = [
+  expireReservations,
+  // S06
+  completeLapsedClaimPeriods,
+];
 
 /**
  * Applies every time rule due at `now` (ADR-005): before each read or change of annonser and
