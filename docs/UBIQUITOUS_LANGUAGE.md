@@ -65,7 +65,7 @@
 |------|-----------|-------------------|-----------------|
 | Simulerad | Märkning av ett steg som inte är verkligt: SMS, butikskontroll, betalning, utbetalning, tid (`simulated`). | fejk, mock (i UI-text) | |
 | Inloggningskod | Engångskod som skickas i ett simulerat SMS vid inloggning (`loginCode`). | kod (ensamt), OTP (i UI-text) | |
-| Demoläge | Körläge med förinlagd data, kortade tider och simulerad klocka (`demoMode`). | testläge | |
+| Demoläge | Körläge med förinlagd data och flyttbar simulerad klocka; på som standard vid start (`demoMode`). | testläge | |
 | Simulerad klocka | Den flyttbara tid som alla tidsregler använder i demoläge och tester (`Clock`). | fejktid, testklocka | |
 
 ## Overloaded Terms
