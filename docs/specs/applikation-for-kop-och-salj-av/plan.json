@@ -146,7 +146,7 @@
       "dependsOn": [
         "S01"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "fis": "s03-publicera-och-hantera-annons.md",
       "completedTaskIds": [],
       "scope": "Förtjockar publiceringen till hela FR2 (prisregel, passerat giltighetsdatum, kontrollens alla nekande utfall, dubblettkontroll) och inför FR3: säljarens ändring av pris, kod och saldo, rättning av Flaggad annons med ny kontroll, återkallelse, nekande i otillåtna statusar och för andra än säljaren. Inkluderar felscenario 6 (ändring medan Reserverad) och slutet på PRD User Flows 4 (säljaren rättar saldot och annonsen blir Aktiv).",
@@ -169,7 +169,7 @@
       "dependsOn": [
         "S01"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "fis": "s04-sok-och-jamfor-erbjudanden.md",
       "completedTaskIds": [],
       "scope": "Förtjockar sökningen till hela FR4: köparens egna annonser utesluts, rabatt i kronor och procent, filter på handlare, sortering på rabatt (standard), pris och kvarvarande giltighet, varning vid mindre än 7 dagar kvar, tomt läge och hänvisning till inloggning för den som inte är inloggad. Annonsvyn visar det US05 kräver före köp.",
@@ -190,7 +190,7 @@
       "dependsOn": [
         "S01"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "fis": "s05-kopets-felvagar-och-samtidighet.md",
       "completedTaskIds": [],
       "scope": "Förtjockar köpet till hela FR5: samtidiga köp där exakt en reservation lyckas, nekad auktorisering, kontrollens ogiltig, lägre saldo, inget svar och fel vid köp, reservation som löper ut före leverans, dubblerat betalningsbesked och säljare som försöker köpa sin egen annons. Inför de tidsstyrda reglernas mekanism (expireDue, svep, kontroll vid anrop) med reservationens utgång som första regel. Täcker felscenario 1, 2, 4 och 5 samt de köprelaterade raderna i PRD:ns Edge Cases-tabell.",
