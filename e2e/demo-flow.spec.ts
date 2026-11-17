@@ -1,51 +1,15 @@
 import fs from "node:fs";
-import { type Browser, type Page, expect, test } from "@playwright/test";
+import { type Page, expect, test } from "@playwright/test";
+import { aYearAhead, expectNoHorizontalScroll, logIn as logInAs, newUserPage, phones, recordResponses } from "./helpers";
 
-// Run-unique suffix: every spec run publishes codes no earlier run used.
+// Run-unique suffix: every spec run publishes codes no earlier run used. Kept per spec: the specs share
+// one worker, so a suffix in ./helpers would repeat across specs that publish the same code prefix.
 const run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
-const phones = { sara: "0701234567", kalle: "0707654321", lisa: "0731112233" } as const;
+
 const SEEDED_MERCHANTS = ["Clas Ohlson", "Filmstaden", "ICA", "Nordiska Kompagniet", "Åhléns"];
 
-function aYearAhead(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
-/** Records the body of every response the page receives, for leak checks. */
-function recordResponses(page: Page) {
-  const pending: Promise<string>[] = [];
-  page.on("response", (r) => pending.push(r.text().catch(() => "")));
-  return { bodies: async () => Promise.all(pending.slice()) };
-}
-
-async function expectNoHorizontalScroll(page: Page) {
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth, `horizontal scroll on ${page.url()}`).toBeLessThanOrEqual(clientWidth);
-}
-
-async function newUserPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ viewport: { width: 360, height: 800 } });
-  return context.newPage();
-}
-
-async function logIn(page: Page, phone: string) {
-  await page.goto("/logga-in");
-  await expectNoHorizontalScroll(page);
-  await page.getByLabel("Mobilnummer").fill(phone);
-  await page.getByRole("button", { name: "Begär inloggningskod" }).click();
-  await expect(page.getByText("Simulerat SMS")).toBeVisible();
-  await expectNoHorizontalScroll(page);
-  const sms = await page.getByTestId("simulated-sms").innerText();
-  const code = sms.match(/\d{6}/)?.[0];
-  expect(code).toBeTruthy();
-  await page.getByLabel("Inloggningskod").fill(code!);
-  await page.getByRole("button", { name: "Logga in" }).click();
-  await page.waitForURL("**/erbjudanden");
-}
+/** Inloggning with the layout checked on every step. */
+const logIn = (page: Page, phone: string) => logInAs(page, phone, { checkLayout: true });
 
 async function publish(page: Page, merchant: string, giftCardCode: string): Promise<string> {
   await page.getByRole("link", { name: "Sälj" }).click();

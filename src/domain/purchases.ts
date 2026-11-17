@@ -110,7 +110,7 @@ export type PaymentOutcome =
     }
   | { kind: "unchanged"; status: PurchaseStatus };
 
-export const PAYMENT_DECLINED = "betalningen nekades";
+const PAYMENT_DECLINED = "betalningen nekades";
 
 function unchanged(db: Db, purchaseId: number): PaymentOutcome {
   return { kind: "unchanged", status: purchaseById(db, purchaseId).status };

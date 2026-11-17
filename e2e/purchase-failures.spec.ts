@@ -1,60 +1,11 @@
-import { type Browser, type Page, expect, test } from "@playwright/test";
+import { type Page, expect, test } from "@playwright/test";
+import { expectNoHorizontalScroll, logIn, newUserPage, phones, publish, recordResponses } from "./helpers";
 
-// Run-unique suffix: every spec run publishes codes no earlier run used.
+// Run-unique suffix: every spec run publishes codes no earlier run used. Kept per spec: the specs share
+// one worker, so a suffix in ./helpers would repeat across specs that publish the same code prefix.
 const run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
-const phones = { sara: "0701234567", kalle: "0707654321", lisa: "0731112233" } as const;
+
 const ALREADY_RESERVED = "Annonsen är redan reserverad eller inte längre tillgänglig.";
-
-function aYearAhead(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
-/** Records the body of every response the page receives, for leak checks. */
-function recordResponses(page: Page) {
-  const pending: Promise<string>[] = [];
-  page.on("response", (r) => pending.push(r.text().catch(() => "")));
-  return { bodies: async () => Promise.all(pending.slice()) };
-}
-
-async function expectNoHorizontalScroll(page: Page) {
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth, `horizontal scroll on ${page.url()}`).toBeLessThanOrEqual(clientWidth);
-}
-
-async function newUserPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ viewport: { width: 360, height: 800 } });
-  return context.newPage();
-}
-
-async function logIn(page: Page, phone: string) {
-  await page.goto("/logga-in");
-  await page.getByLabel("Mobilnummer").fill(phone);
-  await page.getByRole("button", { name: "Begär inloggningskod" }).click();
-  const sms = await page.getByTestId("simulated-sms").innerText();
-  const code = sms.match(/\d{6}/)?.[0];
-  expect(code).toBeTruthy();
-  await page.getByLabel("Inloggningskod").fill(code!);
-  await page.getByRole("button", { name: "Logga in" }).click();
-  await page.waitForURL("**/erbjudanden");
-}
-
-/** Sara publishes a card with saldo 1 000 kr and pris 850 kr; returns the annons's path. */
-async function publish(page: Page, merchant: string, giftCardCode: string): Promise<string> {
-  await page.goto("/salj");
-  await page.getByLabel("Handlare").selectOption({ label: merchant });
-  await page.getByLabel("Presentkortskod").fill(giftCardCode);
-  await page.getByLabel("Saldo (kr)").fill("1000");
-  await page.getByLabel("Ditt pris (kr)").fill("850");
-  await page.getByLabel("Giltigt till och med").fill(aYearAhead());
-  await page.getByRole("button", { name: "Kontrollera och publicera" }).click();
-  await page.waitForURL(/\/annons\/\d+$/);
-  return new URL(page.url()).pathname;
-}
 
 async function purchaseCount(page: Page): Promise<number> {
   await page.goto("/mina-kort");

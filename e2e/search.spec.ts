@@ -1,81 +1,34 @@
 import { and, eq } from "drizzle-orm";
-import { type Browser, type Page, expect, test } from "@playwright/test";
-import { closeDb, openDb } from "../src/db/client";
+import { type Page, expect, test } from "@playwright/test";
 import { listings } from "../src/db/schema";
+import {
+  aYearAhead,
+  completeLogIn,
+  expectNoHorizontalScroll,
+  logIn,
+  newUserPage,
+  phones,
+  publish,
+  recordResponses,
+  withE2eDb,
+} from "./helpers";
 
-// Run-unique suffix: every spec run publishes codes no earlier run used.
+// Run-unique suffix: every spec run publishes codes no earlier run used. Kept per spec: the specs share
+// one worker, so a suffix in ./helpers would repeat across specs that publish the same code prefix.
 const run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
-const phones = { sara: "0701234567", kalle: "0707654321" } as const;
-
-function aYearAhead(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
-/** Records the body of every response the page receives, for leak checks. */
-function recordResponses(page: Page) {
-  const pending: Promise<string>[] = [];
-  page.on("response", (r) => pending.push(r.text().catch(() => "")));
-  return { bodies: async () => Promise.all(pending.slice()) };
-}
-
-async function expectNoHorizontalScroll(page: Page) {
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth, `horizontal scroll on ${page.url()}`).toBeLessThanOrEqual(clientWidth);
-}
-
-async function newUserPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ viewport: { width: 360, height: 800 } });
-  return context.newPage();
-}
-
-/** Inloggning from wherever the page is, through the simulated SMS; lands on sökningen. */
-async function completeLogIn(page: Page, phone: string) {
-  await page.getByLabel("Mobilnummer").fill(phone);
-  await page.getByRole("button", { name: "Begär inloggningskod" }).click();
-  await expect(page.getByText("Simulerat SMS", { exact: true })).toBeVisible();
-  const code = (await page.getByTestId("simulated-sms").innerText()).match(/\d{6}/)?.[0];
-  expect(code).toBeTruthy();
-  await page.getByLabel("Inloggningskod").fill(code!);
-  await page.getByRole("button", { name: "Logga in" }).click();
-  await page.waitForURL(/\/erbjudanden$/);
-}
-
-async function logIn(page: Page, phone: string) {
-  await page.goto("/logga-in");
-  await completeLogIn(page, phone);
-}
-
-async function publish(page: Page, merchant: string, code: string, balance: number, price: number) {
-  await page.goto("/salj");
-  await page.getByLabel("Handlare").selectOption({ label: merchant });
-  await page.getByLabel("Presentkortskod").fill(code);
-  await page.getByLabel("Saldo (kr)").fill(String(balance));
-  await page.getByLabel("Ditt pris (kr)").fill(String(price));
-  await page.getByLabel("Giltigt till och med").fill(aYearAhead());
-  await page.getByRole("button", { name: "Kontrollera och publicera" }).click();
-  await page.waitForURL(/\/annons\/\d+$/);
-  return new URL(page.url()).pathname;
-}
 
 /**
  * Fixture: takes every Aktiv annons at a handlare out of sökningen, so a scenario's Given ("two NK
  * annonser") holds whatever earlier specs in the same run left Aktiv there.
  */
 function withdrawActiveListingsAt(merchantId: string) {
-  const db = openDb(process.env.DATABASE_PATH ?? "data/e2e.db");
-  try {
-    db.update(listings)
+  withE2eDb((db) =>
+    db
+      .update(listings)
       .set({ status: "withdrawn" })
       .where(and(eq(listings.merchantId, merchantId), eq(listings.status, "active")))
-      .run();
-  } finally {
-    closeDb(db);
-  }
+      .run(),
+  );
 }
 
 /** The prices of the listed annonser, top to bottom. */

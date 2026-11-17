@@ -60,12 +60,7 @@ export function listingRow(db: Db, id: number) {
 }
 
 export function listingHistory(db: Db, id: number) {
-  return db
-    .select()
-    .from(statusHistory)
-    .where(and(eq(statusHistory.entityType, "listing"), eq(statusHistory.entityId, id)))
-    .orderBy(asc(statusHistory.id))
-    .all();
+  return historyOf({ db }, "listing", id);
 }
 
 /**
@@ -86,7 +81,7 @@ export function purchaseRow(deps: Deps, id: number) {
 }
 
 /** Statushistorik of one annons or köp, oldest first. */
-export function historyOf(deps: Deps, entityType: "listing" | "purchase", id: number) {
+export function historyOf(deps: Pick<Deps, "db">, entityType: "listing" | "purchase", id: number) {
   return deps.db
     .select()
     .from(statusHistory)

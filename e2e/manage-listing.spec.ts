@@ -1,57 +1,11 @@
 import { eq } from "drizzle-orm";
-import { type Browser, type Page, expect, test } from "@playwright/test";
-import { closeDb, openDb } from "../src/db/client";
+import { expect, test } from "@playwright/test";
 import { listings } from "../src/db/schema";
+import { expectNoHorizontalScroll, fillPublishForm, logIn, newUserPage, phones, publish, withE2eDb } from "./helpers";
 
-// Run-unique suffix: every spec run publishes codes no earlier run used.
+// Run-unique suffix: every spec run publishes codes no earlier run used. Kept per spec: the specs share
+// one worker, so a suffix in ./helpers would repeat across specs that publish the same code prefix.
 const run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
-const phones = { sara: "0701234567", kalle: "0707654321" } as const;
-
-function aYearAhead(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
-async function expectNoHorizontalScroll(page: Page) {
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth, `horizontal scroll on ${page.url()}`).toBeLessThanOrEqual(clientWidth);
-}
-
-async function newUserPage(browser: Browser): Promise<Page> {
-  const context = await browser.newContext({ viewport: { width: 360, height: 800 } });
-  return context.newPage();
-}
-
-async function logIn(page: Page, phone: string) {
-  await page.goto("/logga-in");
-  await page.getByLabel("Mobilnummer").fill(phone);
-  await page.getByRole("button", { name: "Begär inloggningskod" }).click();
-  const code = (await page.getByTestId("simulated-sms").innerText()).match(/\d{6}/)?.[0];
-  expect(code).toBeTruthy();
-  await page.getByLabel("Inloggningskod").fill(code!);
-  await page.getByRole("button", { name: "Logga in" }).click();
-  await page.waitForURL("**/erbjudanden");
-}
-
-async function fillPublishForm(page: Page, giftCardCode: string, price: string) {
-  await page.goto("/salj");
-  await page.getByLabel("Handlare").selectOption({ label: "Nordiska Kompagniet" });
-  await page.getByLabel("Presentkortskod").fill(giftCardCode);
-  await page.getByLabel("Saldo (kr)").fill("1000");
-  await page.getByLabel("Ditt pris (kr)").fill(price);
-  await page.getByLabel("Giltigt till och med").fill(aYearAhead());
-  await page.getByRole("button", { name: "Kontrollera och publicera" }).click();
-}
-
-async function publish(page: Page, giftCardCode: string): Promise<string> {
-  await fillPublishForm(page, giftCardCode, "850");
-  await page.waitForURL(/\/annons\/\d+$/);
-  return new URL(page.url()).pathname;
-}
 
 test("seller edits price, sees publish errors and withdraws", async ({ browser }) => {
   const sara = await newUserPage(browser);
@@ -59,12 +13,12 @@ test("seller edits price, sees publish errors and withdraws", async ({ browser }
   await logIn(sara, phones.sara);
 
   // A pris equal to the saldo is refused at the pris field with the bounds.
-  await fillPublishForm(sara, `NK-ERR-${run}`, "1000");
+  await fillPublishForm(sara, "Nordiska Kompagniet", `NK-ERR-${run}`, 1000, 1000);
   await expect(sara.locator('[data-field="price"]')).toContainText(/större än 0 kr och lägre än saldot 1\s000 kr/);
   await expect(sara).toHaveURL(/\/salj$/);
   await expectNoHorizontalScroll(sara);
 
-  const listingPath = await publish(sara, `NK-EDIT-${run}`);
+  const listingPath = await publish(sara, "Nordiska Kompagniet", `NK-EDIT-${run}`);
   await expectNoHorizontalScroll(sara);
   await sara.getByLabel("Nytt pris (kr)").fill("800");
   await sara.getByRole("button", { name: "Spara pris" }).click();
@@ -90,16 +44,13 @@ test("seller corrects a flagged listing back to active", async ({ browser }) => 
   const sara = await newUserPage(browser);
   const kalle = await newUserPage(browser);
   await logIn(sara, phones.sara);
-  const listingPath = await publish(sara, `DELVIS-${run}`);
+  const listingPath = await publish(sara, "Nordiska Kompagniet", `DELVIS-${run}`);
   const listingId = Number(listingPath.split("/").pop());
 
   // Fixture: the köp that flags an annons for saldoavvikelse belongs to story S05.
-  const db = openDb(process.env.DATABASE_PATH ?? "data/e2e.db");
-  try {
-    db.update(listings).set({ status: "flagged", flagReason: "saldoavvikelse" }).where(eq(listings.id, listingId)).run();
-  } finally {
-    closeDb(db);
-  }
+  withE2eDb((db) =>
+    db.update(listings).set({ status: "flagged", flagReason: "saldoavvikelse" }).where(eq(listings.id, listingId)).run(),
+  );
 
   await sara.goto("/mina-kort");
   await sara.locator(`a.card[href="${listingPath}"]`).click();

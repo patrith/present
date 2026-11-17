@@ -1,20 +1,7 @@
-import { type Page, expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { expectNoHorizontalScroll, shownCode } from "./helpers";
 
 // Every page visited here runs at 360×800 (playwright.config.ts), the narrow width PRD NFR Usability names.
-async function expectNoHorizontalScroll(page: Page) {
-  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-  }));
-  expect(scrollWidth, `horizontal scroll on ${page.url()}`).toBeLessThanOrEqual(clientWidth);
-}
-
-async function shownCode(page: Page): Promise<string> {
-  await expect(page.getByText("Simulerat SMS", { exact: true })).toBeVisible();
-  const code = (await page.getByTestId("simulated-sms").innerText()).match(/\d{6}/)?.[0];
-  expect(code).toBeTruthy();
-  return code!;
-}
 
 test("new user creates account and logs in", async ({ page }) => {
   await page.goto("/logga-in");

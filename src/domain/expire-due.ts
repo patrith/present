@@ -13,7 +13,7 @@ type AfterCommit = () => Promise<void>;
  */
 type ExpiryRule = (deps: Deps, now: Date) => AfterCommit[];
 
-export const RESERVATION_EXPIRED = "reservationen gick ut";
+const RESERVATION_EXPIRED = "reservationen gick ut";
 
 /**
  * A Reserverad annons whose reservation has run out (`reserved_until` ≤ now) before leverans:
