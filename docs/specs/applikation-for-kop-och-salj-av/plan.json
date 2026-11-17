@@ -257,7 +257,7 @@
       "dependsOn": [
         "S05"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "fis": "s06-avslut-reklamation-och-tvist.md",
       "completedTaskIds": [],
       "scope": "FR6 och FR7: köparens bekräftelse och reklamationsperiodens utgång avslutar köpet och krediterar säljarens utbetalningssaldo en gång; reklamation med motivering ger Tvist och fryst utbetalning; demoadministratörens vy och beslut återbetala eller avslå; behörighetskontroller och samtidig reklamation mot periodutgång. Avslutar PRD User Flows 1 (bekräftelse, säljaren ser utbetalningssaldot) och täcker User Flows 5 och felscenario 7.",
@@ -280,7 +280,7 @@
       "dependsOn": [
         "S05"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "fis": "s07-utgang-av-annonser.md",
       "completedTaskIds": [],
       "scope": "FR8: Aktiv eller Flaggad annons blir Utgången efter giltighetsdagens slut svensk tid och försvinner ur sökningen; en Reserverad annons vars giltighet passerar före leverans avbryter köpet med orsaken \"kortet har gått ut\"; säljaren ser i mina kort att och varför annonsen gått ut. Täcker felscenario 3.",
