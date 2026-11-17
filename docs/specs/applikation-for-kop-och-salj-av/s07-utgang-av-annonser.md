@@ -181,3 +181,15 @@
   - **Interpretation**: Extend these; add no second helper, rule mechanism or failure path.
   - **Traced from**: S04/TI01, S05/TI06, S05/TI07
   - **Date**: 2026-11-17
+
+
+## Implementation Observations
+
+- **The giltighet rule is two rules around S05's reservation rule.** `expiryRules` is `[expireReservedPastValidity, expireReservations, expirePastValidity]` in `src/domain/expire-due.ts`. The Reserverad branch has to run before the reservation rule so that the earlier deadline decides the köp's orsak (scenario S07). The Aktiv/Flaggad branch runs after it, so an annons the reservation rule just freed expires in the same call. A sibling story that adds its own rule (S06) can go anywhere in the list, because its rule is independent of both.
+- ASSUMPTION: when `reserved_until` equals the giltighet end, the giltighet decides ("kortet har gått ut"), so an expired card is never presented as only a lapsed reservation. – A product decision that a tie should read "reservationen gick ut" would change it.
+- **Leverans condition.** `deliverPurchase` reads `validUntil` inside its commit transaction and throws `transition_conflict` when `isPastValidity` holds. It does not use an SQL condition, so that the end instant comes only from `endOfValidity` (SC03). On zero rows the existing path runs `expireDue(now)`.
+- **Helpers.** `isPastValidity(validUntil, now)` was added beside S04's `endOfValidity` in `src/domain/dates.ts`. `FailureCause` gained `listingTo: "expired"` and an optional `listingReason`, so the annons's history row reads "giltighetsdatumet YYYY-MM-DD har passerat" while the köp's orsak reads "kortet har gått ut".
+- **"Mina kort" orsak.** `getMyCards` returns `MyListing = ListingDto & { expiryReason }`, read from the latest →expired statushistorik row. S08's "orsak for every status" is expected to generalise or replace it. Routing: S08.
+- **Review F1 (MEDIUM, ambiguous-intent).** The giltighet can end while the authorize or butikskontroll call is in flight. If the butikskontroll then answers anything other than giltig with the full saldo, `receivePaymentAnswer` fails the köp with the butik's orsak (the annons becomes Flaggad or Aktiv) instead of "kortet har gått ut", and the annons becomes Utgången only on the next `expireDue`. Nothing is drawn or delivered. In the app, `getCurrentDeps()` runs `expireDue` before `pay`, so an approval made after the end already sees Misslyckat "kortet har gått ut". S05 has the same race for a lapsed reservation. A possible fix is to re-check `isPastValidity` before the failure branch and route to `expireDue`. Routing: Note / plan-level review.
+- **Review F3 (LOW).** `getMyCards` issues one statushistorik query per Utgången annons, an N+1 pattern that only matters at a scale nobody has asked for. Routing: S08.
+- NOTICED BUT NOT TOUCHING: `tests/domain/transition.test.ts` and `tests/helpers.ts` each define their own `historyOf`.

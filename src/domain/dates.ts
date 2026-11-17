@@ -59,6 +59,11 @@ export function endOfValidity(validUntil: string): Date {
   return new Date(instant);
 }
 
+/** Whether a giltighetsdatum has ended at `now`: true from 00:00 Swedish time the following day. */
+export function isPastValidity(validUntil: string, now: Date): boolean {
+  return endOfValidity(validUntil).getTime() <= now.getTime();
+}
+
 export function addDays(instant: Date, days: number): Date {
   return new Date(instant.getTime() + days * DAY_MS);
 }
