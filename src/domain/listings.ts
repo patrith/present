@@ -40,6 +40,15 @@ const dtoColumns = {
   status: listings.status,
 };
 
+/** Annonser joined with their handlare and säljare, selecting only ListingDto columns. */
+function selectListingDtos(db: Db) {
+  return db
+    .select(dtoColumns)
+    .from(listings)
+    .innerJoin(merchants, eq(merchants.id, listings.merchantId))
+    .innerJoin(users, eq(users.id, listings.sellerId));
+}
+
 export function listMerchants(db: Db): { id: string; name: string }[] {
   return db.select().from(merchants).orderBy(asc(merchants.name)).all();
 }
@@ -87,32 +96,18 @@ export async function publishListing(deps: Deps, sellerId: number, input: Publis
 
 /** Sökningen: every Aktiv annons (filters, sorting and own-listing exclusion: story S04). */
 export function searchListings(db: Db): ListingDto[] {
-  return db
-    .select(dtoColumns)
-    .from(listings)
-    .innerJoin(merchants, eq(merchants.id, listings.merchantId))
-    .innerJoin(users, eq(users.id, listings.sellerId))
+  return selectListingDtos(db)
     .where(eq(listings.status, "active"))
     .orderBy(asc(listings.id))
     .all();
 }
 
 export function getListing(db: Db, listingId: number): ListingDto | undefined {
-  return db
-    .select(dtoColumns)
-    .from(listings)
-    .innerJoin(merchants, eq(merchants.id, listings.merchantId))
-    .innerJoin(users, eq(users.id, listings.sellerId))
-    .where(eq(listings.id, listingId))
-    .get();
+  return selectListingDtos(db).where(eq(listings.id, listingId)).get();
 }
 
 export function listingsOfSeller(db: Db, sellerId: number): ListingDto[] {
-  return db
-    .select(dtoColumns)
-    .from(listings)
-    .innerJoin(merchants, eq(merchants.id, listings.merchantId))
-    .innerJoin(users, eq(users.id, listings.sellerId))
+  return selectListingDtos(db)
     .where(eq(listings.sellerId, sellerId))
     .orderBy(asc(listings.id))
     .all();

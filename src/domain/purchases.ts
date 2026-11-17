@@ -2,7 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { listings, merchants, purchases, type PurchaseStatus } from "@/db/schema";
 import type { Deps } from "./deps";
-import { DomainError } from "./errors";
+import { DomainError, isDomainError } from "./errors";
 import { giftCardCodeFor, giftCardCodeForVerification } from "./gift-card-code";
 import { transition } from "./transition";
 
@@ -41,7 +41,7 @@ export function startPurchase(deps: Deps, buyerId: number, listingId: number): n
         set: { reservedById: buyerId, reservedUntil: new Date(now.getTime() + deps.config.reservationMs) },
       });
     } catch (e) {
-      if (e instanceof DomainError && e.code === "transition_conflict") throw unavailable;
+      if (isDomainError(e) && e.code === "transition_conflict") throw unavailable;
       throw e;
     }
     return transition(tx, {
@@ -151,25 +151,23 @@ const viewColumns = {
   deliveredAt: purchases.deliveredAt,
 };
 
-/** The köp as its köpare sees it; anyone else is refused. */
-export function getPurchaseForBuyer(db: Db, viewerId: number, purchaseId: number): PurchaseView {
-  purchaseOwnedBy(db, viewerId, purchaseId);
-  const row = db
-    .select(viewColumns)
-    .from(purchases)
-    .innerJoin(listings, eq(listings.id, purchases.listingId))
-    .innerJoin(merchants, eq(merchants.id, listings.merchantId))
-    .where(eq(purchases.id, purchaseId))
-    .get()!;
-  return toView(db, viewerId, row);
-}
-
-export function purchasesOfBuyer(db: Db, buyerId: number): PurchaseView[] {
+function selectPurchaseViews(db: Db) {
   return db
     .select(viewColumns)
     .from(purchases)
     .innerJoin(listings, eq(listings.id, purchases.listingId))
-    .innerJoin(merchants, eq(merchants.id, listings.merchantId))
+    .innerJoin(merchants, eq(merchants.id, listings.merchantId));
+}
+
+/** The köp as its köpare sees it; anyone else is refused. */
+export function getPurchaseForBuyer(db: Db, viewerId: number, purchaseId: number): PurchaseView {
+  purchaseOwnedBy(db, viewerId, purchaseId);
+  const row = selectPurchaseViews(db).where(eq(purchases.id, purchaseId)).get()!;
+  return toView(db, viewerId, row);
+}
+
+export function purchasesOfBuyer(db: Db, buyerId: number): PurchaseView[] {
+  return selectPurchaseViews(db)
     .where(eq(purchases.buyerId, buyerId))
     .orderBy(desc(purchases.id))
     .all()

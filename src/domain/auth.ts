@@ -13,10 +13,14 @@ export function normalizePhone(input: string): string {
   return compact.startsWith("+46") ? "0" + compact.slice(3) : compact;
 }
 
+function userByPhone(db: Db, phone: string): { id: number } | undefined {
+  return db.select({ id: users.id }).from(users).where(eq(users.phone, phone)).get();
+}
+
 /** Sends a six-digit inloggningskod through the SmsSender to a registered mobilnummer. */
 export async function requestLoginCode(deps: Deps, phoneInput: string): Promise<{ phone: string }> {
   const phone = normalizePhone(phoneInput);
-  const user = deps.db.select({ id: users.id }).from(users).where(eq(users.phone, phone)).get();
+  const user = userByPhone(deps.db, phone);
   if (!user) throw new DomainError("unknown_phone", "Det finns inget konto för mobilnumret.");
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   deps.db.insert(loginCodes).values({ userId: user.id, code, createdAt: deps.clock.now() }).run();
@@ -29,7 +33,7 @@ export function logIn(deps: Pick<Deps, "db" | "clock" | "config">, phoneInput: s
   const phone = normalizePhone(phoneInput);
   const now = deps.clock.now();
   const refused = new DomainError("invalid_login_code", "Inloggningskoden stämmer inte.");
-  const user = deps.db.select({ id: users.id }).from(users).where(eq(users.phone, phone)).get();
+  const user = userByPhone(deps.db, phone);
   if (!user) throw refused;
   const latest = deps.db
     .select()

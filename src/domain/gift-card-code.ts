@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { listings, purchases } from "@/db/schema";
 
@@ -17,14 +17,17 @@ export function giftCardCodeFor(db: Db, viewerId: number, listingId: number): st
     .get();
   if (!listing) return undefined;
   if (listing.sellerId === viewerId) return listing.code;
-  const delivered = BUYER_CODE_STATUSES.some(
-    (status) =>
-      db
-        .select({ id: purchases.id })
-        .from(purchases)
-        .where(and(eq(purchases.listingId, listingId), eq(purchases.buyerId, viewerId), eq(purchases.status, status)))
-        .get() !== undefined,
-  );
+  const delivered = db
+    .select({ id: purchases.id })
+    .from(purchases)
+    .where(
+      and(
+        eq(purchases.listingId, listingId),
+        eq(purchases.buyerId, viewerId),
+        inArray(purchases.status, [...BUYER_CODE_STATUSES]),
+      ),
+    )
+    .get();
   return delivered ? listing.code : undefined;
 }
 

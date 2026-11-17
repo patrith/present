@@ -7,8 +7,10 @@ export type VerificationResult =
   | { outcome: "no_response" }
   | { outcome: "error" };
 
+export type VerificationRequest = { code: string; declaredBalance: number; phase: VerificationPhase };
+
 export interface GiftCardVerifier {
-  verify(request: { code: string; declaredBalance: number; phase: VerificationPhase }): Promise<VerificationResult>;
+  verify(request: VerificationRequest): Promise<VerificationResult>;
 }
 
 /** The fixed kontrollerat saldo the `SALDO` prefix answers with. */
@@ -37,15 +39,7 @@ export const verifierTable: ReadonlyArray<{
 ];
 
 export class SimulatedGiftCardVerifier implements GiftCardVerifier {
-  async verify({
-    code,
-    declaredBalance,
-    phase,
-  }: {
-    code: string;
-    declaredBalance: number;
-    phase: VerificationPhase;
-  }): Promise<VerificationResult> {
+  async verify({ code, declaredBalance, phase }: VerificationRequest): Promise<VerificationResult> {
     const upper = code.trim().toUpperCase();
     const row = verifierTable.find((r) => upper.startsWith(r.prefix));
     return row ? row.answer(declaredBalance, phase) : { outcome: "valid", balance: declaredBalance };
