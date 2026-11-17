@@ -29,7 +29,7 @@ describe("mina kort", () => {
     expect(saras.purchases).toEqual([]);
 
     // Lisa: her mina kort, sökningen and the annons carry no trace of the code.
-    const lisas = { mine: getMyCards(deps.db, lisa), search: searchListings(deps.db), view: getListing(deps.db, listingId) };
+    const lisas = { mine: getMyCards(deps.db, lisa), search: searchListings(deps, lisa), view: getListing(deps.db, listingId) };
     expect(lisas.mine).toEqual({ listings: [], purchases: [] });
     expect(JSON.stringify(lisas)).not.toContain(code);
   });

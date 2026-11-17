@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/action-form";
 import { AppFrame } from "@/components/app-frame";
-import { kr, ListingStatusPill, VerifiedPill } from "@/components/ui";
+import { CheckStatusPill, kr, ListingStatusPill, ShortValidityPill } from "@/components/ui";
 import { giftCardCodeFor } from "@/domain/gift-card-code";
-import { getListing } from "@/domain/listings";
+import { getListingView } from "@/domain/listings";
 import { startPurchaseAction } from "@/server/actions/purchases";
 import { getDeps } from "@/server/deps";
 import { requireUser } from "@/server/session";
@@ -11,8 +11,9 @@ import { requireUser } from "@/server/session";
 export default async function ListingPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const id = Number((await params).id);
-  const { db } = getDeps();
-  const listing = Number.isInteger(id) ? getListing(db, id) : undefined;
+  const deps = getDeps();
+  const { db } = deps;
+  const listing = Number.isInteger(id) ? getListingView(deps, id) : undefined;
   if (!listing) notFound();
   const own = listing.sellerId === user.id;
   const code = own ? giftCardCodeFor(db, user.id, listing.id) : undefined;
@@ -25,18 +26,29 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
           <ListingStatusPill status={listing.status} />
         </div>
         <div className="big">{kr(listing.price)}</div>
-        <div>För ett kort värt {kr(listing.balance)}</div>
+        <div data-testid="discount">
+          Du sparar {kr(listing.discountKr)} ({listing.discountPct} %) på ett kort värt {kr(listing.balance)}
+        </div>
       </div>
+      {listing.shortValidity && (
+        <div className="row">
+          <ShortValidityPill />
+        </div>
+      )}
       <dl className="kv">
         <dt>Saldo enligt säljaren</dt>
         <dd>{kr(listing.balance)}</dd>
         <dt>Pris</dt>
         <dd>{kr(listing.price)}</dd>
+        <dt>Rabatt</dt>
+        <dd>
+          {kr(listing.discountKr)} ({listing.discountPct} %)
+        </dd>
         <dt>Giltigt till och med</dt>
         <dd>{listing.validUntil}</dd>
         <dt>Kontroll</dt>
         <dd>
-          <VerifiedPill />
+          <CheckStatusPill status={listing.checkStatus} />
         </dd>
         <dt>Säljare</dt>
         <dd>{listing.sellerFirstName}</dd>

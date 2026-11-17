@@ -159,3 +159,14 @@
 - An unknown handlare in the URL gives the empty state and an unknown sortering falls back to högst rabatt.
 - After inloggning reached from sökningen the user always lands on sökningen (no arbitrary return URL, avoiding an open redirect), and the hint text is "Logga in för att se erbjudanden".
 - The empty-state copy is the prototype's "Inga erbjudanden för det här urvalet just nu."
+
+
+## Implementation Observations
+
+- TI01: `endOfValidity(validUntil)` in `src/domain/dates.ts` is the single `Europe/Stockholm` end-of-day helper (no S03/S07 helper existed on this branch). Stories S03 and S07, which run in parallel or later, should reuse it rather than add a second one. Rabatt and the warning live in `src/domain/listing-terms.ts` (`listingTerms`, `compareDiscountDesc`).
+- TI05: kontrollstatus is derived as `flagged` → "flagged", otherwise "verified" ("Kontrollerad (simulerat)"). The flagged label "Flaggad av butikskontrollen" is a placeholder for story S03's own annons view.
+- TI04/S05: the "only Kalle's own annons is Aktiv, no filter" half is proved at domain level in `tests/listings/search.test.ts#search excludes own and non-active listings and filters on merchant`, not in `e2e/search.spec.ts`. The e2e database is shared across spec files and seeded with Sara's annonser, so no e2e user can be guaranteed to see only their own annonser. The e2e proves the Filmstaden urval, as Sara, whose only Filmstaden annons is her own.
+- TI06: `e2e/demo-flow.spec.ts#pages redirect a visitor without a session to inloggning` (story S01) now expects `/logga-in?hanvisning=erbjudanden` for `/erbjudanden`. The scenario still holds: inloggning is reached. Only the URL assertion changed.
+- Review note (LOW, Routing: Note): `e2e/search.spec.ts` "Längst giltighet" step asserts only the count, because both NK annonser share a giltighetsdatum. The validity order is proved in `tests/listings/search.test.ts#search sorts by discount by default, by price and by validity`.
+- NOTICED BUT NOT TOUCHING (for story S05): `src/app/annons/[id]/page.tsx` shows the short-giltighet warning for any status, so a Såld annons opened by URL may carry it. The non-Aktiv annons view belongs to story S05.
+- Visual validation was not run. The project has no `Visual Validation` document or capture procedure. SC03 is covered by the e2e `scrollWidth <= clientWidth` checks.

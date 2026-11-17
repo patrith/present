@@ -1,4 +1,5 @@
 import type { ListingStatus, PurchaseStatus } from "@/db/schema";
+import type { CheckStatus } from "@/domain/listing-terms";
 import { listingStatusLabel, purchaseStatusLabel } from "@/domain/status";
 
 export const kr = (n: number) => `${n.toLocaleString("sv-SE")} kr`;
@@ -30,6 +31,16 @@ export function PurchaseStatusPill({ status }: { status: PurchaseStatus }) {
 /** The butikskontroll's mark: every annons shown has passed it at publicering. */
 export function VerifiedPill() {
   return <span className="pill sim">Kontrollerad (simulerat)</span>;
+}
+
+/** Kontrollstatus as a köpare sees it, from the domain's listing terms. */
+export function CheckStatusPill({ status }: { status: CheckStatus }) {
+  return status === "verified" ? <VerifiedPill /> : <span className="pill bad">Flaggad av butikskontrollen</span>;
+}
+
+/** The short-giltighet warning: less than 7 days left of giltighetsdatum. */
+export function ShortValidityPill() {
+  return <span className="pill warn">Mindre än 7 dagar kvar</span>;
 }
 
 export function MerchantLogo({ id }: { id: string }) {

@@ -16,9 +16,12 @@ export async function currentUser(): Promise<SessionUser | undefined> {
   return userForSession(getDeps().db, await sessionToken());
 }
 
-/** Pages and data-changing actions: a visitor without a session goes to inloggning. */
-export async function requireUser(): Promise<SessionUser> {
+/** Why inloggning was needed, shown there as a hint (`?hanvisning=`). */
+export type LoginHint = "erbjudanden";
+
+/** Pages and data-changing actions: a visitor without a session goes to inloggning, with an optional hint. */
+export async function requireUser(options: { hint?: LoginHint } = {}): Promise<SessionUser> {
   const user = await currentUser();
-  if (!user) redirect("/logga-in");
+  if (!user) redirect(options.hint ? `/logga-in?hanvisning=${options.hint}` : "/logga-in");
   return user;
 }
