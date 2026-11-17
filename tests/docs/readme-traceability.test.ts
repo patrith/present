@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 
 /** The rows of README's "Prioriterade felscenarier" table: number, test file and test name. */
 function failureScenarioRows(readme: string) {
-  const section = readme.split("## Prioriterade felscenarier")[1]?.split("\n## ")[0] ?? "";
+  const section = readme.split("## Prioriterade felscenarier")[1]?.split(/\r?\n## /)[0] ?? "";
   return section
-    .split("\n")
+    .split(/\r?\n/)
     .map((line) => line.match(/^\|\s*(\d+)\s*\|[^|]*\|\s*`([^`]+)`\s*\|\s*`([^`]+)`\s*\|$/))
     .filter((m): m is RegExpMatchArray => m !== null)
     .map(([, n, file, test]) => ({ n: Number(n), file, test }));
