@@ -65,9 +65,21 @@
       "id": "S01",
       "name": "Walking skeleton för demoflödet",
       "dependsOn": [],
-      "status": "pending",
       "fis": "s01-walking-skeleton-for-demoflodet.md",
-      "completedTaskIds": [],
+      "completedTaskIds": [
+        "TI01",
+        "TI02",
+        "TI03",
+        "TI04",
+        "TI05",
+        "TI06",
+        "TI07",
+        "TI08",
+        "TI09",
+        "TI10",
+        "TI11",
+        "TI12"
+      ],
       "scope": "Walking skeleton för huvudflödet (PRD User Flows 1) fram till levererad kod: projektets grund (Next.js, SQLite/Drizzle, Vitest, Playwright, README med start- och testkommandon), schema för alla entiteter, seed med handlare, demoadministratör och testanvändare, Clock, den gemensamma övergångsfunktionen med statushistorik och de tre simulatoradaptrarna. Lyckade vägen genom inloggning med simulerat SMS, publicering som klarar kontrollen, sökningens lista utan kod, köp reservera → auktorisera → kontrollera → dra → leverera med simulerat betalsteg, och en tunn mina kort där köparen ser koden och Levererat och säljaren ser Såld. Simulerade steg i flödet märks. Felvägar och filter tillhör senare stories.",
       "sourceRefs": [
         "docs/specs/applikation-for-kop-och-salj-av/prd.md#fr1-inloggning-med-simulerad-sms-kod",
@@ -90,7 +102,12 @@
         "docs/prototype/presentkortsmarknaden.html",
         "docs/requirements/Presentkortsapp.pdf"
       ],
-      "sequencing": null
+      "sequencing": null,
+      "verified": {
+        "at": "2026-11-17T05:14Z",
+        "summary": "npm ci && npm run test:full -> exit=0, Vitest Tests 15 passed (15); Playwright 4 passed (48.6s)"
+      },
+      "status": "done"
     },
     {
       "id": "S02",

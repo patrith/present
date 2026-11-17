@@ -198,3 +198,13 @@
 - The verifier timeout is 5 s from config, overridable by environment variable, and tests use a short value.
 - Concurrency is proved in-process with `Promise.all` plus two real browser sessions, since the app is a single Node process on one SQLite file.
 - A repeat köp start by the same buyer returns their ongoing köp page instead of an error.
+
+
+## Discovered Requirements
+
+- **Title**: Two concurrent approves of the same köp must leave one authorization
+  - **Description**: S01's `approvePayment` (`src/domain/purchases.ts`) checks that the köp is Påbörjat and only then awaits `PaymentProvider.authorize`. Two concurrent approves of the same köp (two tabs) both pass the check and both authorize. The second then fails its started→authorized transition with `transition_conflict`, and its authorization is never voided. `approvePaymentAction` catches only `wrong_purchase_status`, so the second tab shows "Statusen har redan ändrats." instead of the köp's current status.
+  - **Rationale**: S01's FIS deferred concurrency and void to this story. The two-tab scenario here (S02) covers starting a second köp, not approving one köp twice.
+  - **Interpretation**: when the losing approve's transition conflicts, void its authorization and show the köp's current status. A test runs two `approvePayment` calls concurrently and asserts exactly one capture and no authorization left in the authorized state.
+  - **Traced from**: S01/TI09 (review finding N2)
+  - **Date**: 2026-11-17

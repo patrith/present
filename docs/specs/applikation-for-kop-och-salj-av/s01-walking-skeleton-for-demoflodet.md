@@ -200,3 +200,23 @@
 - The seed holds four Aktiv annonser by Sara at handlare other than NK (scenario S09), so sökningen, filter and sortering show something at demo start while the demo flow's NK annons stays the only one at NK.
 - The payment step's label is "Simulerad betalning", as in the prototype.
 - Visitors without a session are redirected to inloggning on every page of this story; story S04 adds the sökning-specific hint.
+
+
+## Implementation Observations
+
+- **better-sqlite3 pinned to 12.x, not 13.x.** 13.2.0 ships prebuilds with `"gypfile": false`, but `npm ci` (npm 10.9) still ran `node-gyp rebuild` and failed on a machine without a Visual Studio that node-gyp recognises; `npm install` had succeeded, so the gap showed only under TI12's `npm ci`. 12.11.1 installs through `prebuild-install` and passes `npm ci && npm run test:full`.
+- **Runtime used for verification was Node 22.15, not 24.** `engines` says `>=24` per Settled Decisions, so npm prints `EBADENGINE` on this machine; every proof ran on 22.15. Node 22 cannot run `.ts` directly, so the demo reset script runs through `tsx` (dev dependency) in `npm run dev`.
+- **TypeScript 5.9, not 7.0.** npm's latest `typescript` is 7.0 (the native port); Next.js 16's type tooling targets the 5.x API, so `~5.9.3` is pinned.
+- **Next.js 16 writes `AGENTS.md` on `next dev`.** Turned off with `agentRules: false` in `next.config.ts`; CLAUDE.md now points agents at `node_modules/next/dist/docs/` instead.
+- **Two code functions, one viewer path.** `giftCardCodeFor` (src/domain/gift-card-code.ts) is the only function that returns a presentkortskod to a viewer; `giftCardCodeForVerification` beside it reads the code for the butikskontroll at köp and never leaves the server. Both live in the one module, so a grep for `giftCardCode` outside `src/db/schema.ts` and that module finds only DTO-free code.
+- **Interim states other stories finish.** A non-giltig butikskontroll at köp leaves the köp at Betalning auktoriserad and the annons Reserverad with no capture (scenario S06); `approvePayment` throws `payment_declined` for a declined authorization, which S01's UI cannot trigger. Story S05 replaces both. An unregistered mobilnummer gets one generic message (story S02). Sökningen still lists the köpare's own annonser (story S04).
+- **E2E isolation.** Playwright starts README's `npm run dev` on port 3100 with `DATABASE_PATH=data/e2e.db`, so a running demo on port 3000 and its `data/demo.db` are left alone; server output goes to `e2e/.server.log`, which the demo-flow spec scans for the code.
+- **`git grep` proofs see tracked files only.** TI03's and TI11's `cmd:` proofs pass vacuously on untracked files; they were run with the new files intent-to-add (`git add -N`) and hold after the commit.
+- **Tests were written straight from the tasks' Verify targets**, not through the `andthen:testing` skill; each security test was checked as falsifiable by planting the leak it guards against (code column in the search DTO → search and mina kort tests fail; code attribute on the sökning card → e2e demo-flow test fails).
+- NOTICED BUT NOT TOUCHING: `npm audit` reports 4 moderate advisories in `esbuild <=0.24.2`, pulled in by the dev-only `drizzle-kit` via `@esbuild-kit/*`; `npm audit --omit=dev` is clean. Routing: Note.
+- **Review (andthen:review --quick --fix)**: two fixes applied. One adds `e2e/demo-flow.spec.ts#pages redirect a visitor without a session to inloggning`, covering S02's redirect clause that no test proved; TI06's Verify should name it too. The other renames `offers`/`data-testid="offer"` to `activeListings`/`listing`, per the glossary's "Erbjudande – aldrig i kod". Notes, routing Note:
+  - N1: the security lens has not run on this change.
+  - N2: concurrent approves leave a dangling authorization; carried to S05's Discovered Requirements.
+  - N3: the simulated SMS page shows any number's inloggningskod; carried to S02's Discovered Requirements.
+  - N4: sessions have no expiry or `secure` flag.
+  - N5: the köp page's "Butikskontrollen godkände inte kortet" note also shows while a check is in progress elsewhere (an interim state S05 replaces).

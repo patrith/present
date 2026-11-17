@@ -153,3 +153,13 @@
 - Requesting a new inloggningskod invalidates the earlier one.
 - An unregistered number at inloggning gets no inloggningskod until kontoskapande is submitted, and an existing number at kontoskapande gets no automatic inloggningskod, only the hänvisning.
 - Kontoskapande is its own page reachable from inloggning as well as the target of scenario S02's hänvisning, since FR1 treats it as a separate entry point.
+
+
+## Discovered Requirements
+
+- **Title**: The "Simulerat SMS" box shows any registered number's inloggningskod
+  - **Description**: S01's `/logga-in/kod?mobil=<nummer>` page shows the latest simulated SMS for whatever number the URL names, without a session. Anyone can read anyone's inloggningskod and log in as them. `DEMO_MODE=false` does not hide the box.
+  - **Rationale**: FR1 and FR10 require the code to be visible in a box labelled "Simulerat SMS". Neither says who may see the box.
+  - **Interpretation**: accepted as inherent to the simulated SMS in a course demo. Keep the box, but if this story touches the page, show only the SMS from the request the same browser just made (for example tied to a cookie set by the request action), not any number's latest.
+  - **Traced from**: S01/TI06 (review finding N3)
+  - **Date**: 2026-11-17
