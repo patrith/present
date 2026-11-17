@@ -8,6 +8,8 @@ import { getDeps } from "../deps";
 import { LOGIN_SMS_COOKIE, SESSION_COOKIE, requireUser, sessionToken } from "../session";
 import { type ActionResult, refusal } from "./result";
 
+const COOKIE_OPTIONS = { httpOnly: true, sameSite: "lax", path: "/" } as const;
+
 /** Where each outcome leads; a sent code also ties its simulated SMS to this browser. */
 async function follow(outcome: AuthOutcome): Promise<never> {
   const mobil = encodeURIComponent(outcome.phone);
@@ -18,7 +20,7 @@ async function follow(outcome: AuthOutcome): Promise<never> {
       redirect(`/logga-in?mobil=${mobil}&hanvisning=konto-finns`);
     case "code_sent": {
       const sms = latestSimulatedSms(getDeps().db, outcome.phone);
-      if (sms) (await cookies()).set(LOGIN_SMS_COOKIE, String(sms.id), { httpOnly: true, sameSite: "lax", path: "/" });
+      if (sms) (await cookies()).set(LOGIN_SMS_COOKIE, String(sms.id), COOKIE_OPTIONS);
       redirect(`/logga-in/kod?mobil=${mobil}`);
     }
   }
@@ -59,7 +61,7 @@ export async function logInAction(_prev: ActionResult, form: FormData): Promise<
     return refusal(e);
   }
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/" });
+  jar.set(SESSION_COOKIE, token, COOKIE_OPTIONS);
   jar.delete(LOGIN_SMS_COOKIE);
   redirect("/erbjudanden");
 }
