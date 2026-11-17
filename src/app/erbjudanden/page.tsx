@@ -2,14 +2,14 @@ import Link from "next/link";
 import { AppFrame } from "@/components/app-frame";
 import { CheckStatusPill, kr, MerchantLogo, ShortValidityPill } from "@/components/ui";
 import { listMerchants, searchListings } from "@/domain/listings";
-import { getDeps } from "@/server/deps";
+import { getCurrentDeps } from "@/server/deps";
 import { requireUser } from "@/server/session";
 import { parseSearchParams, type SearchParams, searchHref, sortOptions } from "./search-params";
 import { SortSelect } from "./sort-select";
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const user = await requireUser({ hint: "erbjudanden" });
-  const deps = getDeps();
+  const deps = await getCurrentDeps();
   const merchants = listMerchants(deps.db);
   const selection = parseSearchParams(
     await searchParams,

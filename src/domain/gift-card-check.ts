@@ -4,8 +4,9 @@ import { DomainError } from "./errors";
 import { kronor } from "./money";
 
 /**
- * Runs the butikskontroll bounded by the configured timeout: a call unanswered in time counts
- * as inget svar. A late answer is ignored.
+ * Runs the butikskontroll bounded by the configured timeout – at publicering, edit and köp: a call
+ * unanswered in time counts as inget svar, a rejected call as fel. A late answer is dropped:
+ * nothing awaits it, so it can change nothing.
  */
 export async function checkGiftCard(
   deps: Pick<Deps, "verifier" | "config">,
@@ -15,8 +16,9 @@ export async function checkGiftCard(
   const timeout = new Promise<VerificationResult>((resolve) => {
     timer = setTimeout(() => resolve({ outcome: "no_response" }), deps.config.verifierTimeoutMs);
   });
+  const answer = deps.verifier.verify(request).catch((): VerificationResult => ({ outcome: "error" }));
   try {
-    return await Promise.race([deps.verifier.verify(request), timeout]);
+    return await Promise.race([answer, timeout]);
   } finally {
     clearTimeout(timer);
   }

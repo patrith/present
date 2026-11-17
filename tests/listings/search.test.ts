@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { listingStatuses } from "@/db/schema";
 import { getListing, getListingView, searchListings, searchSorts } from "@/domain/listings";
+import { startPurchase } from "@/domain/purchases";
+import { getCurrentDeps } from "@/server/deps";
 import { makeTestDeps, publishNk, userId } from "../helpers";
 import { addListing, clearListings } from "./fixtures";
 
@@ -130,5 +132,23 @@ describe("search and listing view", () => {
       publishedAt: new Date("2026-11-17T11:00:00Z"),
     });
     expect(order({ sort: "price" })).toEqual([earlier, samePrice, later]);
+  });
+
+  it("expired reservation is listed again", async () => {
+    const deps = makeTestDeps();
+    const holder = globalThis as typeof globalThis & { __presentkortDeps?: unknown };
+    holder.__presentkortDeps = deps; // what the pages' getCurrentDeps() starts from
+    try {
+      const id = await publishNk(deps);
+      const kalle = userId(deps.db, "Kalle");
+      startPurchase(deps, kalle, id);
+      expect(searchListings(await getCurrentDeps(), kalle).some((l) => l.id === id)).toBe(false);
+
+      // No sweep runs here: the sökning page's own expireDue call relists the annons.
+      deps.clock.advance(5 * 60_000);
+      expect(searchListings(await getCurrentDeps(), kalle).some((l) => l.id === id)).toBe(true);
+    } finally {
+      delete holder.__presentkortDeps;
+    }
   });
 });

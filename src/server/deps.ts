@@ -5,6 +5,7 @@ import { openDb } from "@/db/client";
 import { OffsetClock, systemClock } from "@/domain/clock";
 import { loadConfig } from "@/domain/config";
 import type { Deps } from "@/domain/deps";
+import { expireDue } from "@/domain/expire-due";
 import { databasePath } from "./database-path";
 
 // Kept on globalThis so dev hot reload neither opens a second database nor resets the demo clock.
@@ -26,4 +27,14 @@ export function getDeps(): Deps {
     };
   }
   return holder.__presentkortDeps;
+}
+
+/**
+ * The app's dependencies after every time rule due now has applied (ADR-005 call path 1):
+ * pages and actions that read or change annonser and köp start here.
+ */
+export async function getCurrentDeps(): Promise<Deps> {
+  const deps = getDeps();
+  await expireDue(deps, deps.clock.now());
+  return deps;
 }

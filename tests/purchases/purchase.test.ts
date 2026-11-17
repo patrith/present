@@ -34,7 +34,7 @@ describe("purchase", () => {
     expect(getPurchaseForBuyer(deps.db, kalle, purchaseId).giftCardCode).toBeUndefined();
 
     deps.clock.advance(30_000);
-    expect(await approvePayment(deps, kalle, purchaseId)).toBe("delivered");
+    expect(await approvePayment(deps, kalle, purchaseId)).toEqual({ kind: "delivered" });
 
     const purchase = deps.db.select().from(purchases).where(eq(purchases.id, purchaseId)).get()!;
     expect(purchase).toMatchObject({ status: "delivered", deliveredAt: deps.clock.now() });
@@ -72,7 +72,7 @@ describe("purchase", () => {
     const listingId = await publishNk(deps, "ANVAND-NK-0001");
     const purchaseId = startPurchase(deps, kalle, listingId);
 
-    expect(await approvePayment(deps, kalle, purchaseId)).toBe("check_failed");
+    expect(await approvePayment(deps, kalle, purchaseId)).toMatchObject({ kind: "failed" });
 
     const purchase = deps.db.select().from(purchases).where(eq(purchases.id, purchaseId)).get()!;
     expect(purchase.status).not.toBe("delivered");

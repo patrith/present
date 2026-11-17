@@ -1,15 +1,15 @@
 import { and, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { listings, statusHistory, type ListingStatus } from "@/db/schema";
+import { listings, purchases, statusHistory, type ListingStatus } from "@/db/schema";
 import { DomainError } from "@/domain/errors";
 import { transition } from "@/domain/transition";
 import { forceListingStatus, makeTestDeps, userId } from "../helpers";
 
-function historyOf(deps: ReturnType<typeof makeTestDeps>, id: number) {
+function historyOf(deps: ReturnType<typeof makeTestDeps>, id: number, entityType: "listing" | "purchase" = "listing") {
   return deps.db
     .select()
     .from(statusHistory)
-    .where(and(eq(statusHistory.entityType, "listing"), eq(statusHistory.entityId, id)))
+    .where(and(eq(statusHistory.entityType, entityType), eq(statusHistory.entityId, id)))
     .all();
 }
 
@@ -60,7 +60,7 @@ describe("transition", () => {
       transition(deps.db, {
         entity: "listing",
         id: listing.id,
-        from: "reserved",
+        from: "sold",
         to: "active",
         actorUserId: null,
         reason: "otillåten",
@@ -110,6 +110,73 @@ describe("transition", () => {
     expect(historyOf(deps, listing.id)).toHaveLength(1);
   });
 
+  it("purchase failure transitions are allowed and others still refused", () => {
+    const deps = makeTestDeps();
+    const kalle = userId(deps.db, "Kalle");
+    const [first, second] = deps.db.select().from(listings).limit(2).all();
+    const at = deps.clock.now();
+    const reserve = (id: number) =>
+      transition(deps.db, {
+        entity: "listing",
+        id,
+        from: "active",
+        to: "reserved",
+        actorUserId: kalle,
+        reason: "reserverad",
+        at,
+        set: { reservedById: kalle },
+      });
+    const newPurchase = (listingId: number) =>
+      transition(deps.db, {
+        entity: "purchase",
+        from: null,
+        to: "started",
+        actorUserId: kalle,
+        reason: "påbörjat",
+        at,
+        values: { listingId, buyerId: kalle, amount: 100, createdAt: at },
+      });
+
+    // Each of the four new pairs succeeds once, stores its orsak in its history row, and a repeat changes nothing.
+    reserve(first.id);
+    reserve(second.id);
+    const started = newPurchase(first.id);
+    const authorized = newPurchase(second.id);
+    transition(deps.db, { entity: "purchase", id: authorized, from: "started", to: "authorized", actorUserId: null, reason: "auktoriserad", at });
+
+    const cases = [
+      { entity: "listing", id: first.id, from: "reserved", to: "active", reason: "betalningen nekades", set: { reservedById: null } },
+      { entity: "listing", id: second.id, from: "reserved", to: "flagged", reason: "ogiltig kod", set: { flagReason: "ogiltig kod" } },
+      { entity: "purchase", id: started, from: "started", to: "failed", reason: "betalningen nekades", set: { failureReason: "betalningen nekades" } },
+      { entity: "purchase", id: authorized, from: "authorized", to: "failed", reason: "butiken godkände inte koden", set: { failureReason: "butiken godkände inte koden" } },
+    ] as const;
+    for (const c of cases) {
+      const run = () => transition(deps.db, { ...c, actorUserId: null, at } as Parameters<typeof transition>[1]);
+      run();
+      const history = historyOf(deps, c.id, c.entity);
+      expect(history.at(-1)).toMatchObject({ fromStatus: c.from, toStatus: c.to, reason: c.reason, actorUserId: null });
+      expect(run).toThrow(expect.objectContaining({ code: "transition_conflict" }));
+      expect(historyOf(deps, c.id, c.entity)).toHaveLength(history.length);
+    }
+    expect(deps.db.select().from(listings).where(eq(listings.id, second.id)).get()).toMatchObject({
+      status: "flagged",
+      flagReason: "ogiltig kod",
+    });
+    expect(deps.db.select().from(purchases).where(eq(purchases.id, started)).get()).toMatchObject({
+      status: "failed",
+      failureReason: "betalningen nekades",
+    });
+
+    // Unlisted pairs stay refused: a Misslyckat köp never revives, a Såld annons never returns to Aktiv.
+    expect(() =>
+      transition(deps.db, { entity: "purchase", id: started, from: "failed", to: "started", actorUserId: null, reason: "x", at }),
+    ).toThrow(expect.objectContaining({ code: "transition_not_allowed" }));
+    expect(() =>
+      transition(deps.db, { entity: "listing", id: first.id, from: "sold", to: "active", actorUserId: null, reason: "x", at }),
+    ).toThrow(expect.objectContaining({ code: "transition_not_allowed" }));
+    expect(deps.db.select().from(purchases).where(eq(purchases.id, started)).get()!.status).toBe("failed");
+  });
+
   it("listing management transitions are allowed and nothing else is added", () => {
     const deps = makeTestDeps();
     const sara = userId(deps.db, "Sara");
@@ -141,7 +208,7 @@ describe("transition", () => {
     }
 
     const refused: [ListingStatus, ListingStatus][] = [
-      ["reserved", "active"],
+      // reserved → active is story S05's FR5 row (a failed köp releases the annons), not an S03 addition.
       ["reserved", "withdrawn"],
       ["sold", "withdrawn"],
       ["sold", "active"],

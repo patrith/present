@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
     throw new Error("NOT_FOUND");
   },
 }));
-vi.mock("@/server/deps", () => ({ getDeps: () => state.deps }));
+vi.mock("@/server/deps", () => ({ getDeps: () => state.deps, getCurrentDeps: async () => state.deps }));
 
 describe("server actions", () => {
   it("data-changing actions refuse a missing session", async () => {
@@ -53,6 +53,7 @@ describe("server actions", () => {
     expect(protectedActions.map(([name]) => name).sort()).toEqual(
       [
         "approvePaymentAction",
+        "declinePaymentAction",
         "editListingAction",
         "logOutAction",
         "publishListingAction",

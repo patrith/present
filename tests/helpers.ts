@@ -3,7 +3,7 @@ import { SimulatedGiftCardVerifier, type VerificationRequest } from "@/adapters/
 import { SimulatedPaymentProvider } from "@/adapters/payment-provider";
 import { SimulatedSmsSender } from "@/adapters/sms";
 import { createTestDb, type Db } from "@/db/client";
-import { listings, statusHistory, users, type ListingStatus } from "@/db/schema";
+import { listings, purchases, statusHistory, users, type ListingStatus } from "@/db/schema";
 import { seed } from "@/db/seed";
 import { FixedClock } from "@/domain/clock";
 import { loadConfig } from "@/domain/config";
@@ -79,4 +79,18 @@ export function forceListingStatus(
   set: Partial<typeof listings.$inferInsert> = {},
 ): void {
   db.update(listings).set({ ...set, status }).where(eq(listings.id, id)).run();
+}
+
+export function purchaseRow(deps: Deps, id: number) {
+  return deps.db.select().from(purchases).where(eq(purchases.id, id)).get()!;
+}
+
+/** Statushistorik of one annons or köp, oldest first. */
+export function historyOf(deps: Deps, entityType: "listing" | "purchase", id: number) {
+  return deps.db
+    .select()
+    .from(statusHistory)
+    .where(and(eq(statusHistory.entityType, entityType), eq(statusHistory.entityId, id)))
+    .orderBy(asc(statusHistory.id))
+    .all();
 }

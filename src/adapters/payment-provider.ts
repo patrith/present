@@ -12,7 +12,7 @@ export interface PaymentProvider {
   refund(authorizationId: string): Promise<void>;
 }
 
-type AuthorizationState = "authorized" | "captured" | "voided" | "refunded";
+export type AuthorizationState = "authorized" | "captured" | "voided" | "refunded";
 
 /** Simulated provider: the outcome follows only the köpare's approve/decline choice. */
 export class SimulatedPaymentProvider implements PaymentProvider {
@@ -46,6 +46,16 @@ export class SimulatedPaymentProvider implements PaymentProvider {
   /** How many times money was drawn for an authorization (tests). */
   captureCount(authorizationId: string): number {
     return this.authorizations.get(authorizationId)?.captures ?? 0;
+  }
+
+  /** How many authorizations are in a state, e.g. still held ("authorized") or released ("voided") (tests). */
+  countIn(state: AuthorizationState): number {
+    return [...this.authorizations.values()].filter((a) => a.state === state).length;
+  }
+
+  /** Money drawn over every authorization (tests). */
+  totalCaptures(): number {
+    return [...this.authorizations.values()].reduce((sum, a) => sum + a.captures, 0);
   }
 
   private get(authorizationId: string) {

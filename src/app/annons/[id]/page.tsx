@@ -7,13 +7,13 @@ import { getListingView, type ListingDto } from "@/domain/listings";
 import { listingStatusLabel } from "@/domain/status";
 import { editListingAction, withdrawListingAction } from "@/server/actions/listings";
 import { startPurchaseAction } from "@/server/actions/purchases";
-import { getDeps } from "@/server/deps";
+import { getCurrentDeps } from "@/server/deps";
 import { requireUser } from "@/server/session";
 
 export default async function ListingPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const id = Number((await params).id);
-  const deps = getDeps();
+  const deps = await getCurrentDeps();
   const { db } = deps;
   const listing = Number.isInteger(id) ? getListingView(deps, id) : undefined;
   if (!listing) notFound();
