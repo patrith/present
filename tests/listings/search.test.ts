@@ -53,6 +53,7 @@ describe("search and listing view", () => {
         price: 850,
         validUntil: "2027-11-17",
         status: "active",
+        flagReason: null,
         discountKr: 150,
         discountPct: 15,
         shortValidity: false,

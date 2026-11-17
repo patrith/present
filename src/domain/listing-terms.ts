@@ -3,7 +3,7 @@ import { endOfValidity } from "./dates";
 
 const SHORT_VALIDITY_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Kontrollstatus as the köpare sees it: flagged by the butikskontroll, else kontrollerad. */
+/** Kontrollstatus: flagged while Flaggad or while a flaggningsorsak remains (e.g. after återkallelse), else kontrollerad. */
 export type CheckStatus = "verified" | "flagged";
 
 /** What a köpare compares an annons on, computed from its stored saldo, pris and giltighetsdatum. */
@@ -17,7 +17,13 @@ export type ListingTerms = {
   checkStatus: CheckStatus;
 };
 
-type TermsInput = { balance: number; price: number; validUntil: string; status: ListingStatus };
+type TermsInput = {
+  balance: number;
+  price: number;
+  validUntil: string;
+  status: ListingStatus;
+  flagReason?: string | null;
+};
 
 /** The one place rabatt and the short-giltighet warning are computed (`now` comes from the Clock). */
 export function listingTerms(listing: TermsInput, now: Date): ListingTerms {
@@ -27,7 +33,7 @@ export function listingTerms(listing: TermsInput, now: Date): ListingTerms {
     // round(100 · rabatt / saldo) half up, in integers so 0.5 never drifts.
     discountPct: Math.floor((200 * discountKr + listing.balance) / (2 * listing.balance)),
     shortValidity: endOfValidity(listing.validUntil).getTime() - now.getTime() < SHORT_VALIDITY_MS,
-    checkStatus: listing.status === "flagged" ? "flagged" : "verified",
+    checkStatus: listing.status === "flagged" || listing.flagReason ? "flagged" : "verified",
   };
 }
 

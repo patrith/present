@@ -146,9 +146,21 @@
       "dependsOn": [
         "S01"
       ],
-      "status": "in-progress",
+      "status": "done",
       "fis": "s03-publicera-och-hantera-annons.md",
-      "completedTaskIds": [],
+      "completedTaskIds": [
+        "TI01",
+        "TI02",
+        "TI03",
+        "TI04",
+        "TI05",
+        "TI06",
+        "TI07",
+        "TI08",
+        "TI09",
+        "TI10",
+        "TI11"
+      ],
       "scope": "Förtjockar publiceringen till hela FR2 (prisregel, passerat giltighetsdatum, kontrollens alla nekande utfall, dubblettkontroll) och inför FR3: säljarens ändring av pris, kod och saldo, rättning av Flaggad annons med ny kontroll, återkallelse, nekande i otillåtna statusar och för andra än säljaren. Inkluderar felscenario 6 (ändring medan Reserverad) och slutet på PRD User Flows 4 (säljaren rättar saldot och annonsen blir Aktiv).",
       "sourceRefs": [
         "docs/specs/applikation-for-kop-och-salj-av/prd.md#fr2-publicera-annons",
@@ -161,7 +173,11 @@
         "docs/UBIQUITOUS_LANGUAGE.md",
         "docs/prototype/presentkortsmarknaden.html"
       ],
-      "sequencing": null
+      "sequencing": null,
+      "verified": {
+        "at": "2026-11-17T06:32Z",
+        "summary": "npm test -> exit=0, Vitest Tests 41 passed (41); npx playwright test e2e/manage-listing.spec.ts -g \"seller corrects a flagged listing back to active\" -> exit=0, 1 passed (19.3s)"
+      }
     },
     {
       "id": "S04",

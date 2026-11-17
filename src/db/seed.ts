@@ -2,8 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Clock } from "@/domain/clock";
 import { addDays, stockholmDate } from "@/domain/dates";
-import { PUBLISH_REASON } from "@/domain/listings";
-import { transition } from "@/domain/transition";
+import { insertActiveListing } from "@/domain/listings";
 import { type Db, openDb } from "./client";
 import { merchants, users } from "./schema";
 
@@ -43,23 +42,18 @@ export function seed(db: Db, clock: Clock): void {
       .all();
     const sara = inserted.find((u) => u.firstName === "Sara")!;
     for (const l of seedListings) {
-      transition(tx, {
-        entity: "listing",
-        from: null,
-        to: "active",
-        actorUserId: sara.id,
-        reason: PUBLISH_REASON,
-        at: now,
-        values: {
+      insertActiveListing(
+        tx,
+        {
           sellerId: sara.id,
           merchantId: l.merchantId,
           giftCardCode: l.giftCardCode,
           balance: l.balance,
           price: l.price,
           validUntil: stockholmDate(addDays(now, l.validInDays)),
-          createdAt: now,
         },
-      });
+        now,
+      );
     }
   });
 }

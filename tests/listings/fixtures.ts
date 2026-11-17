@@ -1,8 +1,9 @@
-import { type ListingStatus, listings } from "@/db/schema";
+import { listingCodes, type ListingStatus, listings } from "@/db/schema";
 import type { Deps } from "@/domain/deps";
 
 /** Removes the seeded annonser so a test controls every annons sökningen can see. */
 export function clearListings(deps: Deps): void {
+  deps.db.delete(listingCodes).run();
   deps.db.delete(listings).run();
 }
 

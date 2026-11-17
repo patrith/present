@@ -1,8 +1,9 @@
 import type { ListingStatus, PurchaseStatus } from "@/db/schema";
 import type { CheckStatus } from "@/domain/listing-terms";
+import { kronor } from "@/domain/money";
 import { listingStatusLabel, purchaseStatusLabel } from "@/domain/status";
 
-export const kr = (n: number) => `${n.toLocaleString("sv-SE")} kr`;
+export const kr = kronor;
 
 const pillClass: Record<ListingStatus | PurchaseStatus, string> = {
   active: "ok",
@@ -33,9 +34,9 @@ export function VerifiedPill() {
   return <span className="pill sim">Kontrollerad (simulerat)</span>;
 }
 
-/** Kontrollstatus as a köpare sees it, from the domain's listing terms. */
+/** Kontrollstatus from the domain's listing terms: "Ej godkänd" while a flaggningsorsak is set. */
 export function CheckStatusPill({ status }: { status: CheckStatus }) {
-  return status === "verified" ? <VerifiedPill /> : <span className="pill bad">Flaggad av butikskontrollen</span>;
+  return status === "verified" ? <VerifiedPill /> : <span className="pill bad">Ej godkänd</span>;
 }
 
 /** The short-giltighet warning: less than 7 days left of giltighetsdatum. */

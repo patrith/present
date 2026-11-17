@@ -89,3 +89,6 @@ button { cursor: pointer; }
 .code { font-family: var(--mono); font-size: 22px; letter-spacing: .08em; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; overflow-wrap: anywhere; }
 .empty { text-align: center; color: var(--muted); padding: 24px 10px; }
 .section-t { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+details { display: flex; flex-direction: column; gap: 10px; }
+details > summary { cursor: pointer; font-weight: 700; font-size: 14px; padding: 4px 0; }
+details[open] > summary { margin-bottom: 10px; }

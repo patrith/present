@@ -1,4 +1,7 @@
+import { and, eq } from "drizzle-orm";
 import { type Browser, type Page, expect, test } from "@playwright/test";
+import { closeDb, openDb } from "../src/db/client";
+import { listings } from "../src/db/schema";
 
 // Run-unique suffix: every spec run publishes codes no earlier run used.
 const run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
@@ -59,6 +62,22 @@ async function publish(page: Page, merchant: string, code: string, balance: numb
   return new URL(page.url()).pathname;
 }
 
+/**
+ * Fixture: takes every Aktiv annons at a handlare out of sökningen, so a scenario's Given ("two NK
+ * annonser") holds whatever earlier specs in the same run left Aktiv there.
+ */
+function withdrawActiveListingsAt(merchantId: string) {
+  const db = openDb(process.env.DATABASE_PATH ?? "data/e2e.db");
+  try {
+    db.update(listings)
+      .set({ status: "withdrawn" })
+      .where(and(eq(listings.merchantId, merchantId), eq(listings.status, "active")))
+      .run();
+  } finally {
+    closeDb(db);
+  }
+}
+
 /** The prices of the listed annonser, top to bottom. */
 async function listedPrices(page: Page): Promise<number[]> {
   const texts = await page.getByTestId("listing").locator(".price b").allInnerTexts();
@@ -110,6 +129,7 @@ test("buyer filters on merchant, sorts and opens a listing", async ({ browser })
   const sara = await newUserPage(browser);
   const kalle = await newUserPage(browser);
 
+  withdrawActiveListingsAt("NK");
   await logIn(sara, phones.sara);
   const nkPath = await publish(sara, "Nordiska Kompagniet", `S04-NK-${run}`, 1000, 850);
   await publish(sara, "Nordiska Kompagniet", `S04-NK2-${run}`, 500, 400);
