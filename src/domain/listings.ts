@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { listingCodes, listings, merchants, users, type ListingStatus } from "@/db/schema";
 import type { Clock } from "./clock";
@@ -7,6 +7,7 @@ import type { Deps } from "./deps";
 import { DomainError, isDomainError } from "./errors";
 import { giftCardCodeFor } from "./gift-card-code";
 import { checkGiftCard, publishCheckRefusal } from "./gift-card-check";
+import { compareDiscountDesc, type ListingTerms, listingTerms } from "./listing-terms";
 import { kronor } from "./money";
 import { listingStatusLabel } from "./status";
 import { type DbOrTx, transition } from "./transition";
@@ -25,6 +26,15 @@ export type ListingDto = {
   /** Flaggningsorsak while Flaggad, e.g. "saldoavvikelse". */
   flagReason: string | null;
 };
+
+/** An annons as a köpare compares it: the code-free DTO plus rabatt, giltighet warning and kontrollstatus. */
+export type ListingViewDto = ListingDto & ListingTerms;
+
+/** Sökningen's sort keys: högst rabatt (default), lägst pris, längst kvarvarande giltighet. */
+export const searchSorts = ["discount", "price", "validity"] as const;
+export type SearchSort = (typeof searchSorts)[number];
+
+export type SearchQuery = { merchantId?: string; sort?: SearchSort };
 
 export type PublishInput = {
   merchantId: string;
@@ -48,6 +58,19 @@ const dtoColumns = {
   status: listings.status,
   flagReason: listings.flagReason,
 };
+
+type SortableRow = ListingDto & { createdAt: Date };
+
+const byOrder: Record<SearchSort, (a: SortableRow, b: SortableRow) => number> = {
+  discount: compareDiscountDesc,
+  price: (a, b) => a.price - b.price,
+  // YYYY-MM-DD orders like the end instant it names.
+  validity: (a, b) => b.validUntil.localeCompare(a.validUntil),
+};
+
+/** Ties in every sortering go to the earliest publication. */
+const byPublication = (a: SortableRow, b: SortableRow) =>
+  a.createdAt.getTime() - b.createdAt.getTime() || a.id - b.id;
 
 /** Annonser joined with their handlare and säljare, selecting only ListingDto columns. */
 function selectListingDtos(db: Db) {
@@ -290,16 +313,43 @@ export function withdrawListing(deps: Pick<Deps, "db" | "clock">, userId: number
   }
 }
 
-/** Sökningen: every Aktiv annons (filters, sorting and own-listing exclusion: story S04). */
-export function searchListings(db: Db): ListingDto[] {
-  return selectListingDtos(db)
-    .where(eq(listings.status, "active"))
-    .orderBy(asc(listings.id))
+/**
+ * Sökningen: every Aktiv annons of other säljare, optionally at one handlare, ordered by the chosen
+ * sortering (default högst rabatt) with ties to the earliest publication. Never carries the code.
+ */
+export function searchListings(
+  deps: Pick<Deps, "db" | "clock">,
+  viewerId: number,
+  query: SearchQuery = {},
+): ListingViewDto[] {
+  const rows: SortableRow[] = deps.db
+    .select({ ...dtoColumns, createdAt: listings.createdAt })
+    .from(listings)
+    .innerJoin(merchants, eq(merchants.id, listings.merchantId))
+    .innerJoin(users, eq(users.id, listings.sellerId))
+    .where(
+      and(
+        eq(listings.status, "active"),
+        ne(listings.sellerId, viewerId),
+        query.merchantId === undefined ? undefined : eq(listings.merchantId, query.merchantId),
+      ),
+    )
     .all();
+  const order = byOrder[query.sort ?? "discount"];
+  const now = deps.clock.now();
+  return rows
+    .sort((a, b) => order(a, b) || byPublication(a, b))
+    .map(({ createdAt: _publishedAt, ...dto }) => ({ ...dto, ...listingTerms(dto, now) }));
 }
 
 export function getListing(db: Db, listingId: number): ListingDto | undefined {
   return selectListingDtos(db).where(eq(listings.id, listingId)).get();
+}
+
+/** The annons view: the code-free DTO with what a köpare needs before a köp. */
+export function getListingView(deps: Pick<Deps, "db" | "clock">, listingId: number): ListingViewDto | undefined {
+  const listing = getListing(deps.db, listingId);
+  return listing && { ...listing, ...listingTerms(listing, deps.clock.now()) };
 }
 
 export function listingsOfSeller(db: Db, sellerId: number): ListingDto[] {

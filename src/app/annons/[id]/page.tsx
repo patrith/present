@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { ActionForm, FieldError } from "@/components/action-form";
 import { AppFrame } from "@/components/app-frame";
-import { kr, ListingStatusPill, VerifiedPill } from "@/components/ui";
+import { CheckStatusPill, kr, ListingStatusPill, ShortValidityPill } from "@/components/ui";
 import { giftCardCodeFor } from "@/domain/gift-card-code";
-import { getListing, type ListingDto } from "@/domain/listings";
+import { getListingView, type ListingDto } from "@/domain/listings";
 import { listingStatusLabel } from "@/domain/status";
 import { editListingAction, withdrawListingAction } from "@/server/actions/listings";
 import { startPurchaseAction } from "@/server/actions/purchases";
@@ -13,12 +13,12 @@ import { requireUser } from "@/server/session";
 export default async function ListingPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const id = Number((await params).id);
-  const { db } = getDeps();
-  const listing = Number.isInteger(id) ? getListing(db, id) : undefined;
+  const deps = getDeps();
+  const { db } = deps;
+  const listing = Number.isInteger(id) ? getListingView(deps, id) : undefined;
   if (!listing) notFound();
   const own = listing.sellerId === user.id;
   const code = own ? giftCardCodeFor(db, user.id, listing.id) : undefined;
-  const flagged = listing.status === "flagged";
 
   return (
     <AppFrame title="Erbjudande" user={user} tab={own ? "mina-kort" : "erbjudanden"} backHref={own ? "/mina-kort" : "/erbjudanden"}>
@@ -28,18 +28,31 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
           <ListingStatusPill status={listing.status} />
         </div>
         <div className="big">{kr(listing.price)}</div>
-        <div>För ett kort värt {kr(listing.balance)}</div>
+        <div data-testid="discount">
+          Du sparar {kr(listing.discountKr)} ({listing.discountPct} %) på ett kort värt {kr(listing.balance)}
+        </div>
       </div>
+      {listing.shortValidity && (
+        <div className="row">
+          <ShortValidityPill />
+        </div>
+      )}
       <dl className="kv">
         <dt>Saldo enligt säljaren</dt>
         <dd>{kr(listing.balance)}</dd>
         <dt>Pris</dt>
         <dd>{kr(listing.price)}</dd>
+        <dt>Rabatt</dt>
+        <dd>
+          {kr(listing.discountKr)} ({listing.discountPct} %)
+        </dd>
         <dt>Giltigt till och med</dt>
         <dd>{listing.validUntil}</dd>
         <dt>Kontroll</dt>
-        {/* A flaggningsorsak outlives återkallelse; only a passed rättning clears it. */}
-        <dd>{flagged || listing.flagReason ? <span className="pill bad">Ej godkänd</span> : <VerifiedPill />}</dd>
+        {/* checkStatus is flagged while a flaggningsorsak is set, also after återkallelse; only a passed rättning clears it. */}
+        <dd>
+          <CheckStatusPill status={listing.checkStatus} />
+        </dd>
         <dt>Säljare</dt>
         <dd>{listing.sellerFirstName}</dd>
       </dl>

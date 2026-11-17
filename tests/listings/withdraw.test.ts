@@ -9,7 +9,7 @@ describe("withdraw listing", () => {
     const active = await publishNk(deps, "NK-8001");
     const flagged = await publishNk(deps, "NK-8002");
     forceListingStatus(deps.db, flagged, "flagged", { flagReason: "ogiltig kod" });
-    expect(searchListings(deps.db).some((l) => l.id === active)).toBe(true);
+    expect(searchListings(deps, userId(deps.db, "Kalle")).some((l) => l.id === active)).toBe(true);
 
     for (const [id, from] of [
       [active, "active"],
@@ -23,7 +23,7 @@ describe("withdraw listing", () => {
         actorUserId: sara,
         at: deps.clock.now(),
       });
-      expect(searchListings(deps.db).some((l) => l.id === id)).toBe(false);
+      expect(searchListings(deps, userId(deps.db, "Kalle")).some((l) => l.id === id)).toBe(false);
     }
   });
 });

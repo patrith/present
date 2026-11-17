@@ -185,9 +185,21 @@
       "dependsOn": [
         "S01"
       ],
-      "status": "in-progress",
+      "status": "done",
       "fis": "s04-sok-och-jamfor-erbjudanden.md",
-      "completedTaskIds": [],
+      "completedTaskIds": [
+        "TI01",
+        "TI02",
+        "TI03",
+        "TI04",
+        "TI05",
+        "TI06",
+        "TI07"
+      ],
+      "verified": {
+        "at": "2026-11-17T14:30Z",
+        "summary": "npm test -> exit=0, Tests 34 passed (34); npx playwright test e2e/search.spec.ts e2e/demo-flow.spec.ts -> exit=0, 7 passed (2.5m)"
+      },
       "scope": "Förtjockar sökningen till hela FR4: köparens egna annonser utesluts, rabatt i kronor och procent, filter på handlare, sortering på rabatt (standard), pris och kvarvarande giltighet, varning vid mindre än 7 dagar kvar, tomt läge och hänvisning till inloggning för den som inte är inloggad. Annonsvyn visar det US05 kräver före köp.",
       "sourceRefs": [
         "docs/specs/applikation-for-kop-och-salj-av/prd.md#fr4-sök-och-jämför-erbjudanden"

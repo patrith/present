@@ -18,6 +18,11 @@ export default async function LoginPage({
     <AppFrame title="Presentkortsmarknaden">
       <h2>Logga in</h2>
       <p style={{ margin: 0, color: "var(--muted)" }}>Köp presentkort med rabatt, eller sälj kort du inte använder.</p>
+      {params.hanvisning === "erbjudanden" && (
+        <div className="note" role="status">
+          Logga in för att se erbjudanden
+        </div>
+      )}
       {phone && params.hanvisning === "konto-finns" && (
         <div className="note warn" role="status">
           Det finns redan ett konto för {phone}. Logga in med mobilnumret.

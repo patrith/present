@@ -27,7 +27,7 @@ describe("publish listing", () => {
     expect(history[0]).toMatchObject({ fromStatus: null, toStatus: "active", actorUserId: sara, at: deps.clock.now() });
     expect(history[0].reason).toMatch(/kontrollerad/);
 
-    const found = searchListings(deps.db).find((l) => l.id === id);
+    const found = searchListings(deps, userId(deps.db, "Kalle")).find((l) => l.id === id);
     expect(found).toMatchObject({
       merchantName: "Nordiska Kompagniet",
       balance: 1000,

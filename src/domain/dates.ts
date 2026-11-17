@@ -26,6 +26,39 @@ export function formatStockholmDateTime(instant: Date): string {
   return dateTimeFormat.format(instant);
 }
 
+const wallClockFormat = new Intl.DateTimeFormat("en-US", {
+  timeZone: TIME_ZONE,
+  hourCycle: "h23",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "numeric",
+  second: "numeric",
+});
+
+/** How far Swedish wall-clock time is ahead of UTC at an instant (1 h or 2 h). */
+function stockholmOffsetMs(epochMs: number): number {
+  const parts = Object.fromEntries(
+    wallClockFormat.formatToParts(new Date(epochMs)).map((p) => [p.type, Number(p.value)]),
+  );
+  const wall = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+  return wall - Math.floor(epochMs / 1000) * 1000;
+}
+
+/**
+ * The instant a giltighetsdatum (YYYY-MM-DD) stops being valid: 00:00 Swedish time the following day.
+ * Uses the Europe/Stockholm zone, so a day across a DST change ends correctly. The single such helper.
+ */
+export function endOfValidity(validUntil: string): Date {
+  const [y, m, d] = validUntil.split("-").map(Number);
+  const midnightAsUtc = Date.UTC(y, m - 1, d + 1);
+  // Midnight is never inside a Swedish DST gap or overlap, so two passes settle the offset.
+  let instant = midnightAsUtc - stockholmOffsetMs(midnightAsUtc);
+  instant = midnightAsUtc - stockholmOffsetMs(instant);
+  return new Date(instant);
+}
+
 export function addDays(instant: Date, days: number): Date {
   return new Date(instant.getTime() + days * DAY_MS);
 }

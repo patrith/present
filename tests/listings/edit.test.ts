@@ -33,7 +33,7 @@ describe("edit listing", () => {
       reason: expect.stringMatching(/pris 850 kr → 800 kr/),
     });
     // Kalle's sökning and annons view show the new pris.
-    expect(searchListings(deps.db).find((l) => l.id === id)).toMatchObject({ price: 800 });
+    expect(searchListings(deps, userId(deps.db, "Kalle")).find((l) => l.id === id)).toMatchObject({ price: 800 });
     expect(getListing(deps.db, id)).toMatchObject({ price: 800 });
     expect(spy.calls).toHaveLength(0);
 
@@ -95,7 +95,7 @@ describe("edit listing", () => {
     // Scenario S08: a Flaggad DELVIS annons is corrected to saldo 800 kr, pris 700 kr.
     const flagged = await publishNk(deps, "DELVIS-4471");
     forceListingStatus(deps.db, flagged, "flagged", { flagReason: "saldoavvikelse" });
-    expect(searchListings(deps.db).some((l) => l.id === flagged)).toBe(false);
+    expect(searchListings(deps, userId(deps.db, "Kalle")).some((l) => l.id === flagged)).toBe(false);
     await editListing(deps, sara, flagged, { balance: 800, price: 700 });
     expect(listingRow(deps.db, flagged)).toMatchObject({
       status: "active",
@@ -108,7 +108,7 @@ describe("edit listing", () => {
       toStatus: "active",
       actorUserId: sara,
     });
-    expect(searchListings(deps.db).find((l) => l.id === flagged)).toMatchObject({ balance: 800, price: 700 });
+    expect(searchListings(deps, userId(deps.db, "Kalle")).find((l) => l.id === flagged)).toMatchObject({ balance: 800, price: 700 });
 
     // Scenario S08, not approved: stays Flaggad with its earlier values.
     const stillFlagged = await publishNk(deps, "NK-6471");
