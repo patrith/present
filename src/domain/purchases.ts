@@ -3,6 +3,7 @@ import type { VerificationResult } from "@/adapters/gift-card-verifier";
 import type { AuthorizationResult } from "@/adapters/payment-provider";
 import type { Db } from "@/db/client";
 import { listings, merchants, purchases, type PurchaseStatus } from "@/db/schema";
+import { isPastValidity } from "./dates";
 import type { Deps } from "./deps";
 import { DomainError, isDomainError } from "./errors";
 import { expireDue } from "./expire-due";
@@ -223,15 +224,26 @@ function failureOf(check: VerificationResult, advertised: number): CheckFailure 
 
 /**
  * Leverans's single commit point: one transaction, conditional on the köp being Betalning
- * auktoriserad and the reservation not yet run out, moves the köp to Levererat and the annons to
- * Såld; the dragning follows the commit. When the commit changes nothing, a lapsed reservation is
- * expired and the köp's current status returned, so expiry and leverans never both apply.
+ * auktoriserad, the reservation not yet run out and the giltighet not yet ended, moves the köp to
+ * Levererat and the annons to Såld; the dragning follows the commit. When the commit changes
+ * nothing, a lapsed reservation or giltighet is expired and the köp's current status returned, so
+ * expiry and leverans never both apply.
  */
 export async function deliverPurchase(deps: Deps, purchaseId: number): Promise<PaymentOutcome> {
   const purchase = purchaseById(deps.db, purchaseId);
   const now = deps.clock.now();
   try {
     deps.db.transaction((tx) => {
+      // FR5/FR8: never deliver a card whose giltighet has ended. Read inside the transaction, so
+      // it holds at the commit.
+      const { validUntil } = tx
+        .select({ validUntil: listings.validUntil })
+        .from(listings)
+        .where(eq(listings.id, purchase.listingId))
+        .get()!;
+      if (isPastValidity(validUntil, now)) {
+        throw new DomainError("transition_conflict", "Kortets giltighetsdatum har passerat.");
+      }
       transition(tx, {
         entity: "purchase",
         id: purchaseId,

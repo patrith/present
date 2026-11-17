@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { startPurchase } from "@/domain/purchases";
 import { register } from "@/instrumentation";
 import { SWEEP_INTERVAL_MS, stopSweep } from "@/server/sweep";
-import { listingRow, makeTestDeps, publishNk, purchaseRow, userId } from "../helpers";
+import { forceListingStatus, listingRow, makeTestDeps, publishNk, purchaseRow, userId } from "../helpers";
 
 const holder = globalThis as typeof globalThis & { __presentkortDeps?: unknown };
 
@@ -35,6 +35,22 @@ describe("sweep", () => {
     await vi.advanceTimersByTimeAsync(SWEEP_INTERVAL_MS);
     expect(listingRow(deps.db, listingId).status).toBe("active");
     expect(purchaseRow(deps, purchaseId)).toMatchObject({ status: "failed", failureReason: "reservationen gick ut" });
+  });
+
+  it("sweep expires a listing past its validity without any read", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const deps = makeTestDeps();
+    holder.__presentkortDeps = deps;
+    vi.stubEnv("NEXT_RUNTIME", "nodejs");
+    const listingId = await publishNk(deps);
+    forceListingStatus(deps.db, listingId, "active", { validUntil: "2026-11-17" });
+    await register();
+
+    // Midnight Swedish time passes and nobody reads anything: one tick later the annons is Utgången.
+    deps.clock.advance(new Date("2026-11-18T00:00:00+01:00").getTime() - deps.clock.now().getTime());
+    expect(listingRow(deps.db, listingId).status).toBe("active");
+    await vi.advanceTimersByTimeAsync(SWEEP_INTERVAL_MS);
+    expect(listingRow(deps.db, listingId).status).toBe("expired");
   });
 
   it("does not start outside the Node.js runtime", async () => {

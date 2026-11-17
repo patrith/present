@@ -8,17 +8,19 @@ export type FailureCause = {
   reason: string;
   /** The acting user; null means the system. */
   actorUserId: number | null;
-  listingTo: "active" | "flagged";
+  listingTo: "active" | "flagged" | "expired";
   /** Flaggningsorsak, required when the annons becomes Flaggad. */
   flagReason?: string;
+  /** The annons's statushistorik orsak when it differs from the köp's (e.g. Utgången). */
+  listingReason?: string;
 };
 
 type FailingPurchase = { id: number; listingId: number; buyerId: number };
 
 /**
- * The failure pair (ADR-003): köp `from` → Misslyckat and its annons Reserverad → Aktiv or
- * Flaggad, in one transaction. Returns false and changes nothing when either has already left
- * its prior status (a concurrent leverans, expiry or repeated besked got there first).
+ * The failure pair (ADR-003): köp `from` → Misslyckat and its annons Reserverad → Aktiv,
+ * Flaggad or Utgången, in one transaction. Returns false and changes nothing when either has
+ * already left its prior status (a concurrent leverans, expiry or repeated besked got there first).
  * Adapter calls (void) belong to the caller, after this returns.
  */
 export function failPurchaseTx(
@@ -46,7 +48,7 @@ export function failPurchaseTx(
         from: "reserved",
         to: cause.listingTo,
         actorUserId: cause.actorUserId,
-        reason: cause.listingTo === "flagged" ? cause.flagReason! : cause.reason,
+        reason: cause.listingTo === "flagged" ? cause.flagReason! : (cause.listingReason ?? cause.reason),
         at,
         guard: { reservedById: purchase.buyerId },
         set: { reservedById: null, reservedUntil: null, flagReason: cause.flagReason ?? null },

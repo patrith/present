@@ -280,9 +280,19 @@
       "dependsOn": [
         "S05"
       ],
-      "status": "in-progress",
+      "status": "done",
       "fis": "s07-utgang-av-annonser.md",
-      "completedTaskIds": [],
+      "completedTaskIds": [
+        "TI01",
+        "TI02",
+        "TI03",
+        "TI04",
+        "TI05",
+        "TI06",
+        "TI07",
+        "TI08",
+        "TI09"
+      ],
       "scope": "FR8: Aktiv eller Flaggad annons blir Utgången efter giltighetsdagens slut svensk tid och försvinner ur sökningen; en Reserverad annons vars giltighet passerar före leverans avbryter köpet med orsaken \"kortet har gått ut\"; säljaren ser i mina kort att och varför annonsen gått ut. Täcker felscenario 3.",
       "sourceRefs": [
         "docs/specs/applikation-for-kop-och-salj-av/prd.md#fr8-utgång-av-annonser",
@@ -294,7 +304,11 @@
         "docs/adrs/ADR-005-klocka-och-svep.md",
         "docs/UBIQUITOUS_LANGUAGE.md"
       ],
-      "sequencing": "Beror på S05 för expireDue, där giltighetsregeln läggs till."
+      "sequencing": "Beror på S05 för expireDue, där giltighetsregeln läggs till.",
+      "verified": {
+        "at": "2026-11-17T21:45Z",
+        "summary": "npm test -> exit=0, Test Files  32 passed (32), Tests  68 passed (68); npx playwright test e2e/listing-expiry.spec.ts (worktree config, port 3107) -> exit=0, 1 passed"
+      }
     },
     {
       "id": "S08",

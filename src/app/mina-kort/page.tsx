@@ -38,6 +38,11 @@ export default async function MyCardsPage() {
               <div className="s">
                 {kr(l.price)} för saldo {kr(l.balance)}
               </div>
+              {l.expiryReason && (
+                <div className="s" data-testid="expiry-reason">
+                  Har gått ut: {l.expiryReason}
+                </div>
+              )}
             </div>
             <ListingStatusPill status={l.status} />
           </Link>

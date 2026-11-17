@@ -35,6 +35,10 @@ export const allowedTransitions: { [E in Entity]: ReadonlyArray<readonly [Status
     // FR5: a failed köp or a lapsed reservation releases the annons; a failing butikskontroll at köp flags it.
     ["reserved", "active"],
     ["reserved", "flagged"],
+    // S07 – FR8: an annons whose giltighetsdatum has passed before leverans becomes Utgången.
+    ["active", "expired"],
+    ["flagged", "expired"],
+    ["reserved", "expired"],
   ],
   purchase: [
     [null, "started"],

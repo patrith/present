@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { listings, purchases, statusHistory, type ListingStatus } from "@/db/schema";
 import { DomainError } from "@/domain/errors";
-import { transition } from "@/domain/transition";
+import { allowedTransitions, transition } from "@/domain/transition";
 import { forceListingStatus, makeTestDeps, userId } from "../helpers";
 
 function historyOf(deps: ReturnType<typeof makeTestDeps>, id: number, entityType: "listing" | "purchase" = "listing") {
@@ -216,6 +216,58 @@ describe("transition", () => {
       ["expired", "active"],
       ["withdrawn", "active"],
       ["withdrawn", "withdrawn"],
+    ];
+    for (const [from, to] of refused) {
+      forceListingStatus(deps.db, listing.id, from);
+      const historyBefore = historyOf(deps, listing.id).length;
+      expect(() => move(from, to), `${from} → ${to}`).toThrow(
+        expect.objectContaining({ code: "transition_not_allowed" }),
+      );
+      expect(deps.db.select().from(listings).where(eq(listings.id, listing.id)).get()!.status).toBe(from);
+      expect(historyOf(deps, listing.id)).toHaveLength(historyBefore);
+    }
+  });
+
+  it("listing expiry transitions are allowed and nothing else is added", () => {
+    const deps = makeTestDeps();
+    const listing = firstSeededListing(deps);
+    const move = (from: ListingStatus, to: ListingStatus) =>
+      transition(deps.db, {
+        entity: "listing",
+        id: listing.id,
+        from,
+        to,
+        actorUserId: null,
+        reason: "giltighetsdatumet 2026-11-17 har passerat",
+        at: deps.clock.now(),
+      });
+
+    // SC01: exactly these three pairs lead to Utgången, and nothing leaves it.
+    const intoExpired = allowedTransitions.listing.filter(([, to]) => to === "expired");
+    expect(intoExpired).toEqual([
+      ["active", "expired"],
+      ["flagged", "expired"],
+      ["reserved", "expired"],
+    ]);
+    expect(allowedTransitions.listing.filter(([from]) => from === "expired")).toEqual([]);
+
+    for (const [from] of intoExpired) {
+      forceListingStatus(deps.db, listing.id, from!);
+      const historyBefore = historyOf(deps, listing.id).length;
+      move(from!, "expired");
+      expect(deps.db.select().from(listings).where(eq(listings.id, listing.id)).get()!.status).toBe("expired");
+      const history = historyOf(deps, listing.id);
+      expect(history).toHaveLength(historyBefore + 1);
+      expect(history.at(-1)).toMatchObject({ fromStatus: from, toStatus: "expired", actorUserId: null });
+      // A repeat changes nothing.
+      expect(() => move(from!, "expired")).toThrow(expect.objectContaining({ code: "transition_conflict" }));
+      expect(historyOf(deps, listing.id)).toHaveLength(historyBefore + 1);
+    }
+
+    const refused: [ListingStatus, ListingStatus][] = [
+      ["expired", "active"],
+      ["sold", "expired"],
+      ["withdrawn", "expired"],
     ];
     for (const [from, to] of refused) {
       forceListingStatus(deps.db, listing.id, from);
