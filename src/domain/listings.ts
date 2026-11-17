@@ -1,4 +1,4 @@
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, ne } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { listingCodes, listings, merchants, users, type ListingStatus } from "@/db/schema";
 import type { Clock } from "./clock";
@@ -10,6 +10,7 @@ import { checkGiftCard, publishCheckRefusal } from "./gift-card-check";
 import { compareDiscountDesc, type ListingTerms, listingTerms } from "./listing-terms";
 import { kronor } from "./money";
 import { listingStatusLabel } from "./status";
+import { type OwnerHistoryRow, ownerHistory } from "./status-history";
 import { type DbOrTx, transition } from "./transition";
 
 /** What anyone may see of an annons. Never carries the presentkortskod. */
@@ -352,9 +353,33 @@ export function getListingView(deps: Pick<Deps, "db" | "clock">, listingId: numb
   return listing && { ...listing, ...listingTerms(listing, deps.clock.now()) };
 }
 
+/**
+ * The annons page for a viewer: the view, plus – for its säljare only – the presentkortskod and
+ * the annons's statushistorik. Anyone else gets neither.
+ */
+export type ListingPage = ListingViewDto &
+  ({ own: false } | { own: true; giftCardCode: string; history: OwnerHistoryRow[] });
+
+export function getListingPage(
+  deps: Pick<Deps, "db" | "clock">,
+  viewerId: number,
+  listingId: number,
+): ListingPage | undefined {
+  const view = getListingView(deps, listingId);
+  if (!view) return undefined;
+  if (view.sellerId !== viewerId) return { ...view, own: false };
+  return {
+    ...view,
+    own: true,
+    giftCardCode: giftCardCodeFor(deps.db, viewerId, listingId)!,
+    history: ownerHistory(deps.db, "listing", listingId),
+  };
+}
+
+/** The säljare's own annonser, newest first. */
 export function listingsOfSeller(db: Db, sellerId: number): ListingDto[] {
   return selectListingDtos(db)
     .where(eq(listings.sellerId, sellerId))
-    .orderBy(asc(listings.id))
+    .orderBy(desc(listings.id))
     .all();
 }

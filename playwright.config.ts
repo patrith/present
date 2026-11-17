@@ -13,6 +13,11 @@ export default defineConfig({
     viewport: { width: 360, height: 800 },
     trace: "retain-on-failure",
   },
+  projects: [
+    { name: "main", testIgnore: /demo-clock\.spec\.ts$/ },
+    // The simulated klocka is process-global: the spec that moves it runs last, after every other spec.
+    { name: "demo-clock", testMatch: /demo-clock\.spec\.ts$/, dependencies: ["main"] },
+  ],
   webServer: {
     // README's start command; its output goes to a file the specs scan for leaked codes.
     command: `npm run dev -- --port ${port} > e2e/.server.log 2>&1`,

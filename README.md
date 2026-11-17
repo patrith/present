@@ -61,8 +61,41 @@ Vid köp släpps auktoriseringen och köpet blir Misslyckat om kontrollen inte s
 ## Demoflödet
 
 1. Logga in som Sara, välj **Sälj** och publicera ett kort hos Nordiska Kompagniet, t.ex. koden `NK-4471-9920`, saldo 1 000 kr, pris 850 kr.
-2. Logga in som Kalle i ett annat webbläsarfönster (t.ex. privat läge), öppna annonsen under **Erbjudanden** och köp den.
-3. Godkänn den simulerade betalningen. Kalle ser koden, statusen Levererat och kvittot; Sara ser annonsen som Såld under **Mina kort**.
+2. Logga in som Kalle i ett annat webbläsarfönster (t.ex. privat läge), filtrera på Nordiska Kompagniet under **Erbjudanden**, öppna annonsen (15 % rabatt) och köp den.
+3. Godkänn den simulerade betalningen. Kalle ser koden, statusen Levererat och kvittot, och trycker **Kortet fungerade**.
+4. Sara ser annonsen som Såld och sitt utbetalningssaldo 850 kr under **Mina kort**; Kalle ser köpet Avslutat med koden och, när han öppnar köpet, dess statushistorik.
+
+## Demopanelen och den simulerade klockan
+
+I demoläge visar varje sida demopanelen **Simulerad tid** överst: den simulerade tiden (svensk tid), knapparna **+1 min**, **+5 min** och **+1 dag** och de inställda tiderna för reservation och reklamationsperiod. En knapptryckning flyttar den simulerade klockan framåt och tillämpar direkt alla tidsregler mot den nya tiden: en reservation som löpt ut gör köpet Misslyckat och annonsen Aktiv, en reklamationsperiod som löpt ut gör köpet Avslutat och krediterar säljaren, och en annons vars giltighetsdatum passerat blir Utgången. Klockan går bara framåt och nollställs när appen startas om. Med `DEMO_MODE=false` visas ingen panel.
+
+## Simulerade element (FR10)
+
+Allt simulerat är märkt i gränssnittet:
+
+| Element | Märkning |
+|---------|----------|
+| Inloggningskoden | **Simulerat SMS** |
+| Butikskontrollen som godkänt en annons | **Kontrollerad (simulerat)** |
+| Butikskontrollens avslag vid publicering eller ändring, och ett köp som misslyckas i kontrollen | **Simulerad butikskontroll** |
+| Betalsteget | **Simulerad betalning** |
+| Återbetalningen efter en beviljad reklamation | **Simulerad återbetalning** |
+| Säljarens utbetalningssaldo under Mina kort | **Simulerad utbetalning** |
+| Demopanelens klocka | **Simulerad tid** |
+
+## Prioriterade felscenarier
+
+De sju prioriterade felscenarierna (PRD:ns Edge Cases) och testerna som täcker dem. Alla körs av `npm test` (och `npm run test:full`); ett enskilt test körs med `npx vitest run {fil} -t "{test}"`.
+
+| # | Felscenario | Testfil | Test |
+|---|-------------|---------|------|
+| 1 | Två köpare reserverar samma annons samtidigt – bara en lyckas | `tests/purchases/reserve.test.ts` | `concurrent, repeated and own-listing reservations` |
+| 2 | Betalningsauktorisering nekas – ingen kod levereras, annonsen blir Aktiv igen | `tests/purchases/payment.test.ts` | `declined payment fails purchase and reactivates listing` |
+| 3 | Kortets giltighetstid passerar under köpet | `tests/purchases/validity-at-delivery.test.ts` | `expired card is never delivered` |
+| 4 | Kontrollen anger lägre saldo än annonsen | `tests/purchases/verifier-outcomes.test.ts` | `ANVAND DELVIS TIMEOUT FEL each fail without capture` |
+| 5 | Samma betalningsbesked tas emot två gånger – ingen dubbel leverans eller dragning | `tests/purchases/payment-callback.test.ts` | `duplicate besked sequential and concurrent capture once` |
+| 6 | Säljaren försöker ändra pris eller kod när annonsen är Reserverad | `tests/listings/edit-guards.test.ts` | `no change while reserved or after` |
+| 7 | Köparen rapporterar ogiltig kod efter leverans – tvist utan automatisk återbetalning | `tests/purchases/claim.test.ts` | `claim opens dispute and refusals change nothing` |
 
 ## Tester
 
@@ -70,6 +103,8 @@ Vid köp släpps auktoriseringen och köpet blir Misslyckat om kontrollen inte s
 |------|----------|----------|
 | Snabb | `npm test` | Vitest: domän- och integrationstester mot en egen SQLite-databas per testfil |
 | Full | `npm run test:full` | Vitest och sedan Playwright end-to-end mot appen startad med `npm run dev` (port 3100, databas `data/e2e.db`) |
+
+End-to-end-specarna delar en app och en databas och körs i en worker; `e2e/demo-clock.spec.ts`, som flyttar den simulerade klockan, ligger i ett eget Playwright-projekt som körs sist.
 
 Bara end-to-end: `npm run test:e2e`. Typkontroll: `npm run typecheck`.
 

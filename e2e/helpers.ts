@@ -63,14 +63,21 @@ export async function logIn(page: Page, phone: string, options: LogInOptions = {
   await completeLogIn(page, phone, options);
 }
 
-/** Fills and submits the sälj form, a year's giltighet; saldo 1 000 kr and pris 850 kr unless given. */
-export async function fillPublishForm(page: Page, merchant: string, code: string, balance = 1000, price = 850) {
+/** Fills and submits the sälj form; saldo 1 000 kr, pris 850 kr and a year's giltighet unless given. */
+export async function fillPublishForm(
+  page: Page,
+  merchant: string,
+  code: string,
+  balance = 1000,
+  price = 850,
+  validUntil = aYearAhead(),
+) {
   await page.goto("/salj");
   await page.getByLabel("Handlare").selectOption({ label: merchant });
   await page.getByLabel("Presentkortskod").fill(code);
   await page.getByLabel("Saldo (kr)").fill(String(balance));
   await page.getByLabel("Ditt pris (kr)").fill(String(price));
-  await page.getByLabel("Giltigt till och med").fill(aYearAhead());
+  await page.getByLabel("Giltigt till och med").fill(validUntil);
   await page.getByRole("button", { name: "Kontrollera och publicera" }).click();
 }
 
@@ -81,8 +88,9 @@ export async function publish(
   code: string,
   balance = 1000,
   price = 850,
+  validUntil = aYearAhead(),
 ): Promise<string> {
-  await fillPublishForm(page, merchant, code, balance, price);
+  await fillPublishForm(page, merchant, code, balance, price, validUntil);
   await page.waitForURL(/\/annons\/\d+$/);
   return new URL(page.url()).pathname;
 }
@@ -95,4 +103,20 @@ export function withE2eDb(write: (db: Db) => void): void {
   } finally {
     closeDb(db);
   }
+}
+
+/** Starts a köp of the annons at `listingPath` (pris 850 kr unless given); lands on the köp's payment step. */
+export async function startBuying(page: Page, listingPath: string, price = 850): Promise<string> {
+  await page.goto(listingPath);
+  await page.getByRole("button", { name: `Köp för ${price} kr` }).click();
+  await page.waitForURL(/\/kop\/\d+$/);
+  await expect(page.getByText("Simulerad betalning", { exact: true })).toBeVisible();
+  return new URL(page.url()).pathname;
+}
+
+/** The utbetalningssaldo "mina kort" shows, in kronor. */
+export async function shownPayout(page: Page): Promise<number> {
+  await page.goto("/mina-kort");
+  const text = await page.getByTestId("payout-balance").locator("b").innerText();
+  return Number(text.replace(/\D/g, ""));
 }

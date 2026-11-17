@@ -1,6 +1,8 @@
 import type { ListingStatus, PurchaseStatus } from "@/db/schema";
 import type { CheckStatus } from "@/domain/listing-terms";
+import { formatStockholmTimestamp } from "@/domain/dates";
 import { kronor } from "@/domain/money";
+import type { OwnerHistoryRow } from "@/domain/status-history";
 import { listingStatusLabel, purchaseStatusLabel } from "@/domain/status";
 
 export const kr = kronor;
@@ -59,5 +61,21 @@ export function SimBox({ label, children }: { label: string; children: React.Rea
       <span className="lbl">{label}</span>
       {children}
     </div>
+  );
+}
+
+/** An annons's or köp's statushistorik for its owner: tidpunkt (Swedish time), status and orsak, oldest first. */
+export function StatusHistory({ rows }: { rows: OwnerHistoryRow[] }) {
+  return (
+    <section className="stack" aria-label="Statushistorik">
+      <div className="section-t">Statushistorik</div>
+      <ol className="history" data-testid="status-history">
+        {rows.map((h, i) => (
+          <li key={i}>
+            <span>{formatStockholmTimestamp(h.at)}</span> · <b>{h.status}</b> · {h.reason}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
