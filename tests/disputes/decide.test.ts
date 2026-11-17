@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { claimPurchase, decideDispute, getPurchaseForBuyer, getPurchasePage } from "@/domain/purchases";
-import { historyOf, listingRow, purchaseRow, type TestDeps } from "../helpers";
-import { deliveredPurchase, historyCount, payoutOf } from "../purchases/delivered";
+import { historyOf, listingRow, purchaseRow } from "../helpers";
+import { deliveredPurchase, payoutOf, snapshot } from "../purchases/delivered";
 
 /** Kalle's köp at 850 kr in Tvist, with every återbetalning call counted. */
 async function disputedPurchase() {
@@ -14,10 +14,6 @@ async function disputedPurchase() {
     return refund(id);
   };
   return { ...fixture, refunds };
-}
-
-function snapshot(deps: TestDeps, purchaseId: number, sellerId: number) {
-  return { status: purchaseRow(deps, purchaseId).status, history: historyCount(deps), payout: payoutOf(deps, sellerId) };
 }
 
 describe("tvist decisions", () => {

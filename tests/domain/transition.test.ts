@@ -1,17 +1,9 @@
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { listings, purchases, statusHistory, type ListingStatus } from "@/db/schema";
+import { listings, purchases, type ListingStatus } from "@/db/schema";
 import { DomainError } from "@/domain/errors";
 import { allowedTransitions, transition } from "@/domain/transition";
-import { forceListingStatus, makeTestDeps, userId } from "../helpers";
-
-function historyOf(deps: ReturnType<typeof makeTestDeps>, id: number, entityType: "listing" | "purchase" = "listing") {
-  return deps.db
-    .select()
-    .from(statusHistory)
-    .where(and(eq(statusHistory.entityType, entityType), eq(statusHistory.entityId, id)))
-    .all();
-}
+import { forceListingStatus, historyOf, makeTestDeps, userId } from "../helpers";
 
 function firstSeededListing(deps: ReturnType<typeof makeTestDeps>) {
   return deps.db.select().from(listings).limit(1).get()!;
@@ -40,7 +32,7 @@ describe("transition", () => {
       status: "reserved",
       reservedById: kalle,
     });
-    const history = historyOf(deps, listing.id);
+    const history = historyOf(deps, "listing", listing.id);
     expect(history).toHaveLength(2); // creation (seed) + reservation
     expect(history[1]).toMatchObject({
       fromStatus: "active",
@@ -53,7 +45,7 @@ describe("transition", () => {
     // Repeat: changes nothing, domain error.
     expect(reserve).toThrow(DomainError);
     expect(() => reserve()).toThrow(expect.objectContaining({ code: "transition_conflict" }));
-    expect(historyOf(deps, listing.id)).toHaveLength(2);
+    expect(historyOf(deps, "listing", listing.id)).toHaveLength(2);
 
     // Unlisted pair: refused before touching the database.
     expect(() =>
@@ -68,7 +60,7 @@ describe("transition", () => {
       }),
     ).toThrow(expect.objectContaining({ code: "transition_not_allowed" }));
     expect(deps.db.select().from(listings).where(eq(listings.id, listing.id)).get()!.status).toBe("reserved");
-    expect(historyOf(deps, listing.id)).toHaveLength(2);
+    expect(historyOf(deps, "listing", listing.id)).toHaveLength(2);
   });
 
   it("rolls back the status change when the history insert fails", () => {
@@ -107,7 +99,7 @@ describe("transition", () => {
       }),
     ).toThrow("second write failed");
     expect(deps.db.select().from(listings).where(eq(listings.id, listing.id)).get()!.status).toBe("active");
-    expect(historyOf(deps, listing.id)).toHaveLength(1);
+    expect(historyOf(deps, "listing", listing.id)).toHaveLength(1);
   });
 
   it("purchase failure transitions are allowed and others still refused", () => {
@@ -153,10 +145,10 @@ describe("transition", () => {
     for (const c of cases) {
       const run = () => transition(deps.db, { ...c, actorUserId: null, at } as Parameters<typeof transition>[1]);
       run();
-      const history = historyOf(deps, c.id, c.entity);
+      const history = historyOf(deps, c.entity, c.id);
       expect(history.at(-1)).toMatchObject({ fromStatus: c.from, toStatus: c.to, reason: c.reason, actorUserId: null });
       expect(run).toThrow(expect.objectContaining({ code: "transition_conflict" }));
-      expect(historyOf(deps, c.id, c.entity)).toHaveLength(history.length);
+      expect(historyOf(deps, c.entity, c.id)).toHaveLength(history.length);
     }
     expect(deps.db.select().from(listings).where(eq(listings.id, second.id)).get()).toMatchObject({
       status: "flagged",
@@ -199,10 +191,10 @@ describe("transition", () => {
     ];
     for (const [from, to] of allowed) {
       forceListingStatus(deps.db, listing.id, from);
-      const historyBefore = historyOf(deps, listing.id).length;
+      const historyBefore = historyOf(deps, "listing", listing.id).length;
       move(from, to);
       expect(deps.db.select().from(listings).where(eq(listings.id, listing.id)).get()!.status).toBe(to);
-      const history = historyOf(deps, listing.id);
+      const history = historyOf(deps, "listing", listing.id);
       expect(history).toHaveLength(historyBefore + 1);
       expect(history.at(-1)).toMatchObject({ fromStatus: from, toStatus: to, actorUserId: sara });
     }
@@ -219,12 +211,12 @@ describe("transition", () => {
     ];
     for (const [from, to] of refused) {
       forceListingStatus(deps.db, listing.id, from);
-      const historyBefore = historyOf(deps, listing.id).length;
+      const historyBefore = historyOf(deps, "listing", listing.id).length;
       expect(() => move(from, to), `${from} → ${to}`).toThrow(
         expect.objectContaining({ code: "transition_not_allowed" }),
       );
       expect(deps.db.select().from(listings).where(eq(listings.id, listing.id)).get()!.status).toBe(from);
-      expect(historyOf(deps, listing.id)).toHaveLength(historyBefore);
+      expect(historyOf(deps, "listing", listing.id)).toHaveLength(historyBefore);
     }
   });
 
@@ -262,10 +254,10 @@ describe("transition", () => {
       const run = move(id, from, to);
       run();
       expect(deps.db.select().from(purchases).where(eq(purchases.id, id)).get()!.status).toBe(to);
-      const history = historyOf(deps, id, "purchase");
+      const history = historyOf(deps, "purchase", id);
       expect(history.at(-1)).toMatchObject({ fromStatus: from, toStatus: to });
       expect(run).toThrow(expect.objectContaining({ code: "transition_conflict" }));
-      expect(historyOf(deps, id, "purchase")).toHaveLength(history.length);
+      expect(historyOf(deps, "purchase", id)).toHaveLength(history.length);
     }
 
     const refused: [PurchaseStatus, PurchaseStatus][] = [
@@ -308,15 +300,15 @@ describe("transition", () => {
 
     for (const [from] of intoExpired) {
       forceListingStatus(deps.db, listing.id, from!);
-      const historyBefore = historyOf(deps, listing.id).length;
+      const historyBefore = historyOf(deps, "listing", listing.id).length;
       move(from!, "expired");
       expect(deps.db.select().from(listings).where(eq(listings.id, listing.id)).get()!.status).toBe("expired");
-      const history = historyOf(deps, listing.id);
+      const history = historyOf(deps, "listing", listing.id);
       expect(history).toHaveLength(historyBefore + 1);
       expect(history.at(-1)).toMatchObject({ fromStatus: from, toStatus: "expired", actorUserId: null });
       // A repeat changes nothing.
       expect(() => move(from!, "expired")).toThrow(expect.objectContaining({ code: "transition_conflict" }));
-      expect(historyOf(deps, listing.id)).toHaveLength(historyBefore + 1);
+      expect(historyOf(deps, "listing", listing.id)).toHaveLength(historyBefore + 1);
     }
 
     const refused: [ListingStatus, ListingStatus][] = [
@@ -326,12 +318,12 @@ describe("transition", () => {
     ];
     for (const [from, to] of refused) {
       forceListingStatus(deps.db, listing.id, from);
-      const historyBefore = historyOf(deps, listing.id).length;
+      const historyBefore = historyOf(deps, "listing", listing.id).length;
       expect(() => move(from, to), `${from} → ${to}`).toThrow(
         expect.objectContaining({ code: "transition_not_allowed" }),
       );
       expect(deps.db.select().from(listings).where(eq(listings.id, listing.id)).get()!.status).toBe(from);
-      expect(historyOf(deps, listing.id)).toHaveLength(historyBefore);
+      expect(historyOf(deps, "listing", listing.id)).toHaveLength(historyBefore);
     }
   });
 });

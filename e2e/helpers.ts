@@ -3,7 +3,8 @@ import { type Db, closeDb, openDb } from "../src/db/client";
 
 // Shared harness for the e2e specs. Not a spec itself: Playwright collects only *.spec.ts.
 
-export const phones = { sara: "0701234567", kalle: "0707654321", lisa: "0731112233" } as const;
+/** The seeded demoanvändare; admin is the demoadministratör (README). */
+export const phones = { sara: "0701234567", kalle: "0707654321", lisa: "0731112233", admin: "0700000000" } as const;
 
 export function aYearAhead(): string {
   const d = new Date();

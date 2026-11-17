@@ -4,8 +4,6 @@ import { expectNoHorizontalScroll, logIn, newUserPage, phones, publish, recordRe
 // Run-unique suffix: every spec run publishes codes no earlier run used (see demo-flow.spec.ts).
 const run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
 
-/** The seeded demoadministratör (README). */
-const ADMIN_PHONE = "0700000000";
 const MOTIVATION = "Kassan sa att koden redan är använd";
 
 /** Kalle buys the annons and approves the simulated payment; lands on the Levererat köp page. */
@@ -82,7 +80,7 @@ test("claim becomes dispute and admin refunds", async ({ browser }) => {
   // Kalle's navigation has no Tvister; the demoadministratör's does.
   await expect(kalle.getByRole("navigation").getByRole("link", { name: "Tvister" })).toHaveCount(0);
   const adminResponses = recordResponses(admin);
-  await logIn(admin, ADMIN_PHONE);
+  await logIn(admin, phones.admin);
   await admin.getByRole("navigation").getByRole("link", { name: "Tvister" }).click();
   await admin.waitForURL("**/tvister");
   const dispute = admin.getByTestId("dispute").filter({ hasText: MOTIVATION }).filter({ hasText: "Kalle Berg" }).last();

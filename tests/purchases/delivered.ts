@@ -1,7 +1,7 @@
-import { count, eq } from "drizzle-orm";
-import { statusHistory, users } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { users } from "@/db/schema";
 import { approvePayment, startPurchase } from "@/domain/purchases";
-import { makeTestDeps, publishNk, type TestDeps, userId } from "../helpers";
+import { historyCount, makeTestDeps, publishNk, purchaseRow, type TestDeps, userId } from "../helpers";
 
 // Shared fixture for the after-leverans tests (story S06). Not a test file itself.
 
@@ -25,6 +25,7 @@ export function payoutOf(deps: TestDeps, id: number): number {
   return deps.db.select({ b: users.payoutBalance }).from(users).where(eq(users.id, id)).get()!.b;
 }
 
-export function historyCount(deps: TestDeps): number {
-  return deps.db.select({ n: count() }).from(statusHistory).get()!.n;
+/** What a refused action must leave unchanged: the köp's status, all statushistorik, the payout. */
+export function snapshot(deps: TestDeps, purchaseId: number, sellerId: number) {
+  return { status: purchaseRow(deps, purchaseId).status, history: historyCount(deps), payout: payoutOf(deps, sellerId) };
 }

@@ -26,10 +26,15 @@ function actorName(actor: { firstName: string; lastName: string; role: string } 
   return actor.role === "admin" ? "demoadministratören" : `${actor.firstName} ${actor.lastName}`;
 }
 
+/** Refuses (forbidden, with `message`) anyone but the demoadministratör. */
+export function requireAdmin(db: Db, userId: number, message: string): void {
+  const user = db.select({ role: users.role }).from(users).where(eq(users.id, userId)).get();
+  if (user?.role !== "admin") throw new DomainError("forbidden", message);
+}
+
 /** Tvister: every köp in Tvist with its motivering and statushistorik, for the demoadministratör only. */
 export function listDisputes(db: Db, viewerId: number): DisputeDto[] {
-  const viewer = db.select({ role: users.role }).from(users).where(eq(users.id, viewerId)).get();
-  if (viewer?.role !== "admin") throw new DomainError("forbidden", "Endast demoadministratören kan se tvister.");
+  requireAdmin(db, viewerId, "Endast demoadministratören kan se tvister.");
 
   const rows = db
     .select({

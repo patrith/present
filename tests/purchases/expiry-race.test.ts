@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { expireDue } from "@/domain/expire-due";
 import { deliverPurchase, startPurchase } from "@/domain/purchases";
-import { transition } from "@/domain/transition";
-import { forceListingStatus, listingRow, makeTestDeps, publishNk, purchaseRow, userId } from "../helpers";
+import { authorizeDirectly, forceListingStatus, listingRow, makeTestDeps, publishNk, purchaseRow, userId } from "../helpers";
 
 describe("expiry against leverans", () => {
   it("expiry and delivery never both apply", async () => {
@@ -12,19 +11,8 @@ describe("expiry against leverans", () => {
       const kalle = userId(deps.db, "Kalle");
       const listingId = await publishNk(deps);
       const purchaseId = startPurchase(deps, kalle, listingId);
-      const besked = await deps.payments.authorize({ amount: 850, approve: true });
-      if (besked.outcome !== "authorized") throw new Error("expected an authorization");
       // Betalning auktoriserad, the butikskontroll has answered giltig: leverans is next.
-      transition(deps.db, {
-        entity: "purchase",
-        id: purchaseId,
-        from: "started",
-        to: "authorized",
-        actorUserId: null,
-        reason: "betalning auktoriserad (simulerat)",
-        at: deps.clock.now(),
-        set: { authorizationId: besked.authorizationId },
-      });
+      const authorizationId = await authorizeDirectly(deps, purchaseId);
       const reservedUntil = listingRow(deps.db, listingId).reservedUntil!;
 
       // Half the rounds with the Clock exactly at reserved_until, half one millisecond before it
@@ -39,7 +27,7 @@ describe("expiry against leverans", () => {
       const outcome = {
         purchase: purchase.status,
         listing: listing.status,
-        captures: deps.payments.captureCount(besked.authorizationId),
+        captures: deps.payments.captureCount(authorizationId),
         voids: deps.payments.countIn("voided"),
         held: deps.payments.countIn("authorized"),
       };
@@ -53,7 +41,7 @@ describe("expiry against leverans", () => {
       // Running both again changes nothing.
       await Promise.all([expire(), deliver()]);
       expect(purchaseRow(deps, purchaseId).status).toBe(purchase.status);
-      expect(deps.payments.captureCount(besked.authorizationId)).toBe(outcome.captures);
+      expect(deps.payments.captureCount(authorizationId)).toBe(outcome.captures);
     }
     expect([...seen].sort()).toEqual(["delivered", "failed"]);
   });
@@ -73,18 +61,7 @@ describe("giltighet expiry against leverans", () => {
         // Reserved 23:58 until 00:03, so only the giltighet decides.
         deps.clock.advance(end.getTime() - 2 * 60_000 - deps.clock.now().getTime());
         const purchaseId = startPurchase(deps, kalle, listingId);
-        const besked = await deps.payments.authorize({ amount: 850, approve: true });
-        if (besked.outcome !== "authorized") throw new Error("expected an authorization");
-        transition(deps.db, {
-          entity: "purchase",
-          id: purchaseId,
-          from: "started",
-          to: "authorized",
-          actorUserId: null,
-          reason: "betalning auktoriserad (simulerat)",
-          at: deps.clock.now(),
-          set: { authorizationId: besked.authorizationId },
-        });
+        const authorizationId = await authorizeDirectly(deps, purchaseId);
 
         // At the end instant, then one millisecond before it; the call order alternates.
         const t = new Date(end.getTime() - offsetMs);
@@ -96,7 +73,7 @@ describe("giltighet expiry against leverans", () => {
         const outcome = {
           purchase: purchaseRow(deps, purchaseId).status,
           listing: listingRow(deps.db, listingId).status,
-          captures: deps.payments.captureCount(besked.authorizationId),
+          captures: deps.payments.captureCount(authorizationId),
           voids: deps.payments.countIn("voided"),
           held: deps.payments.countIn("authorized"),
         };

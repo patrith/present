@@ -2,9 +2,10 @@ import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import type { VerificationResult } from "@/adapters/gift-card-verifier";
 import type { AuthorizationResult } from "@/adapters/payment-provider";
 import type { Db } from "@/db/client";
-import { listings, merchants, purchases, users, type PurchaseStatus } from "@/db/schema";
+import { listings, merchants, purchases, type PurchaseStatus } from "@/db/schema";
 import { isPastValidity } from "./dates";
 import type { Deps } from "./deps";
+import { requireAdmin } from "./disputes";
 import { DomainError, isDomainError } from "./errors";
 import { expireDue } from "./expire-due";
 import { checkGiftCard } from "./gift-card-check";
@@ -399,11 +400,6 @@ export async function claimPurchase(
 
 export type DisputeDecision = "refund" | "reject";
 
-function requireAdmin(db: Db, userId: number): void {
-  const user = db.select({ role: users.role }).from(users).where(eq(users.id, userId)).get();
-  if (user?.role !== "admin") throw new DomainError("forbidden", "Endast demoadministratören kan hantera tvister.");
-}
-
 /**
  * The demoadministratör's decision on a tvist: "återbetala" → Återbetalat, then one simulated
  * återbetalning after commit; "avslå" → Avslutat with the säljare credited. Only the first decision
@@ -415,7 +411,7 @@ export async function decideDispute(
   purchaseId: number,
   decision: DisputeDecision,
 ): Promise<void> {
-  requireAdmin(deps.db, adminId);
+  requireAdmin(deps.db, adminId, "Endast demoadministratören kan hantera tvister.");
   const purchase = purchaseById(deps.db, purchaseId);
   const alreadyDecided = new DomainError("wrong_purchase_status", "Tvisten är redan avgjord.");
   const now = deps.clock.now();

@@ -3,14 +3,10 @@ import { describe, expect, it } from "vitest";
 import { purchases, type PurchaseStatus } from "@/db/schema";
 import { expireDue } from "@/domain/expire-due";
 import { claimPurchase, getPurchaseForBuyer } from "@/domain/purchases";
-import { historyOf, purchaseRow, type TestDeps } from "../helpers";
-import { CLAIM_PERIOD_MS, deliveredPurchase, historyCount, payoutOf } from "./delivered";
+import { historyOf, purchaseRow } from "../helpers";
+import { CLAIM_PERIOD_MS, deliveredPurchase, payoutOf, snapshot } from "./delivered";
 
 const MOTIVATION = "Kassan sa att koden redan är använd";
-
-function snapshot(deps: TestDeps, purchaseId: number, sellerId: number) {
-  return { status: purchaseRow(deps, purchaseId).status, history: historyCount(deps), payout: payoutOf(deps, sellerId) };
-}
 
 describe("reklamation", () => {
   it("claim opens dispute and refusals change nothing", async () => {

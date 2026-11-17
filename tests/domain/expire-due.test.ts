@@ -1,12 +1,14 @@
 import { count } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { purchases, statusHistory } from "@/db/schema";
+import { purchases } from "@/db/schema";
 import { expireDue } from "@/domain/expire-due";
 import { searchListings } from "@/domain/listings";
 import { approvePayment, getPurchaseForBuyer, receivePaymentAnswer, startPurchase } from "@/domain/purchases";
 import { transition } from "@/domain/transition";
 import {
+  authorizeDirectly,
   forceListingStatus,
+  historyCount,
   historyOf,
   listingRow,
   makeTestDeps,
@@ -15,10 +17,7 @@ import {
   type TestDeps,
   userId,
 } from "../helpers";
-
-function historyCount(deps: TestDeps): number {
-  return deps.db.select({ n: count() }).from(statusHistory).get()!.n;
-}
+import { CLAIM_PERIOD_MS, deliveredPurchase, payoutOf } from "../purchases/delivered";
 
 /** Kalle's köp of Sara's NK annons, reserved at 12:00 until 12:05; optionally authorized. */
 async function reservedPurchase(authorized: boolean) {
@@ -26,23 +25,8 @@ async function reservedPurchase(authorized: boolean) {
   const kalle = userId(deps.db, "Kalle");
   const listingId = await publishNk(deps);
   const purchaseId = startPurchase(deps, kalle, listingId);
-  let authorizationId: string | undefined;
-  if (authorized) {
-    const besked = await deps.payments.authorize({ amount: 850, approve: true });
-    if (besked.outcome !== "authorized") throw new Error("expected an authorization");
-    authorizationId = besked.authorizationId;
-    // The köp as it stands while the butikskontroll is still out.
-    transition(deps.db, {
-      entity: "purchase",
-      id: purchaseId,
-      from: "started",
-      to: "authorized",
-      actorUserId: null,
-      reason: "betalning auktoriserad (simulerat)",
-      at: deps.clock.now(),
-      set: { authorizationId },
-    });
-  }
+  // The köp as it stands while the butikskontroll is still out.
+  const authorizationId = authorized ? await authorizeDirectly(deps, purchaseId) : undefined;
   return { deps, kalle, listingId, purchaseId, authorizationId };
 }
 
@@ -119,7 +103,6 @@ describe("expireDue", () => {
   // S06
   it("claim period lapse completes and credits once", async () => {
     const { confirmPurchase } = await import("@/domain/purchases");
-    const { CLAIM_PERIOD_MS, deliveredPurchase, payoutOf } = await import("../purchases/delivered");
     const { deps, sara, purchaseId } = await deliveredPurchase();
 
     // 11:59 the next day: still Levererat.
@@ -198,22 +181,7 @@ async function lastDayPurchase(deps: TestDeps, start: string, authorized: boolea
   const listingId = await lastDayListing(deps, "active", code);
   deps.clock.advance(at(start).getTime() - deps.clock.now().getTime());
   const purchaseId = startPurchase(deps, kalle, listingId);
-  let authorizationId: string | undefined;
-  if (authorized) {
-    const besked = await deps.payments.authorize({ amount: 850, approve: true });
-    if (besked.outcome !== "authorized") throw new Error("expected an authorization");
-    authorizationId = besked.authorizationId;
-    transition(deps.db, {
-      entity: "purchase",
-      id: purchaseId,
-      from: "started",
-      to: "authorized",
-      actorUserId: null,
-      reason: "betalning auktoriserad (simulerat)",
-      at: deps.clock.now(),
-      set: { authorizationId },
-    });
-  }
+  const authorizationId = authorized ? await authorizeDirectly(deps, purchaseId) : undefined;
   return { kalle, listingId, purchaseId, authorizationId };
 }
 
