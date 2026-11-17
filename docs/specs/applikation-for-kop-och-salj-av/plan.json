@@ -257,9 +257,21 @@
       "dependsOn": [
         "S05"
       ],
-      "status": "in-progress",
+      "status": "done",
       "fis": "s06-avslut-reklamation-och-tvist.md",
-      "completedTaskIds": [],
+      "completedTaskIds": [
+        "TI01",
+        "TI02",
+        "TI03",
+        "TI04",
+        "TI05",
+        "TI06",
+        "TI07",
+        "TI08",
+        "TI09",
+        "TI10",
+        "TI11"
+      ],
       "scope": "FR6 och FR7: köparens bekräftelse och reklamationsperiodens utgång avslutar köpet och krediterar säljarens utbetalningssaldo en gång; reklamation med motivering ger Tvist och fryst utbetalning; demoadministratörens vy och beslut återbetala eller avslå; behörighetskontroller och samtidig reklamation mot periodutgång. Avslutar PRD User Flows 1 (bekräftelse, säljaren ser utbetalningssaldot) och täcker User Flows 5 och felscenario 7.",
       "sourceRefs": [
         "docs/specs/applikation-for-kop-och-salj-av/prd.md#fr6-affärens-avslut-och-säljarens-utbetalning",
@@ -272,7 +284,11 @@
         "docs/adrs/ADR-005-klocka-och-svep.md",
         "docs/UBIQUITOUS_LANGUAGE.md"
       ],
-      "sequencing": "Beror på S05 för expireDue, där reklamationsperiodens utgång läggs till."
+      "sequencing": "Beror på S05 för expireDue, där reklamationsperiodens utgång läggs till.",
+      "verified": {
+        "at": "2026-11-17T13:47Z",
+        "summary": "npm test -> exit=0, Test Files  37 passed (37), Tests  72 passed (72); npx playwright test e2e/after-delivery.spec.ts (worktree config, port 3106) -> exit=0, 2 passed"
+      }
     },
     {
       "id": "S07",

@@ -1,19 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ActionForm } from "@/components/action-form";
+import { ActionForm, FieldError } from "@/components/action-form";
 import { AppFrame } from "@/components/app-frame";
 import { kr, PurchaseStatusPill, SimBox } from "@/components/ui";
 import { formatStockholmDateTime } from "@/domain/dates";
 import { isDomainError } from "@/domain/errors";
-import { getPurchaseForBuyer, type PurchaseView } from "@/domain/purchases";
-import { approvePaymentAction, declinePaymentAction } from "@/server/actions/purchases";
+import { getPurchasePage, type PurchasePage } from "@/domain/purchases";
+import {
+  approvePaymentAction,
+  claimPurchaseAction,
+  confirmPurchaseAction,
+  declinePaymentAction,
+} from "@/server/actions/purchases";
 import { getCurrentDeps } from "@/server/deps";
 import { requireUser } from "@/server/session";
 
-async function loadForBuyer(viewerId: number, purchaseId: number): Promise<PurchaseView> {
-  const { db } = await getCurrentDeps();
+async function loadForBuyer(viewerId: number, purchaseId: number): Promise<PurchasePage> {
+  const deps = await getCurrentDeps();
   try {
-    return getPurchaseForBuyer(db, viewerId, purchaseId);
+    return getPurchasePage(deps, viewerId, purchaseId);
   } catch (e) {
     // Anyone but the köpare sees no trace of the köp.
     if (isDomainError(e)) notFound();
@@ -89,7 +94,7 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
         </>
       )}
 
-      {p.status === "delivered" && p.giftCardCode && (
+      {p.giftCardCode && (
         <>
           <div className="note ok">Klart! Visa koden i kassan.</div>
           <div className="code" data-testid="gift-card-code">
@@ -109,6 +114,53 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
             <dd>{p.validUntil}</dd>
           </dl>
         </>
+      )}
+
+      {p.canSettle && (
+        <>
+          {p.claimDeadline && (
+            <div className="note">
+              Fungerar koden inte? Reklamera senast {formatStockholmDateTime(p.claimDeadline)}. Säljaren får betalt
+              när du bekräftar eller när tiden har gått ut.
+            </div>
+          )}
+          <ActionForm action={confirmPurchaseAction} className="row">
+            <input type="hidden" name="purchaseId" value={p.id} />
+            <button className="btn ok small" type="submit">
+              Kortet fungerade
+            </button>
+          </ActionForm>
+          <details>
+            <summary>Rapportera fel</summary>
+            <ActionForm action={claimPurchaseAction}>
+              <input type="hidden" name="purchaseId" value={p.id} />
+              <label className="field">
+                Vad hände?
+                <textarea name="claimReason" rows={2} placeholder="Kassan sa att koden redan är använd" />
+              </label>
+              <FieldError name="claimReason" />
+              <button className="btn danger small" type="submit">
+                Skicka reklamation
+              </button>
+            </ActionForm>
+          </details>
+        </>
+      )}
+
+      {p.disputeNote && (
+        <div className="note warn" data-testid="dispute-note">
+          {p.disputeNote}
+        </div>
+      )}
+
+      {p.refund && (
+        <SimBox label={p.refund.label}>
+          <div>Köpet är återbetalat. Koden visas inte längre.</div>
+          <dl className="kv" data-testid="refund">
+            <dt>Återbetalt</dt>
+            <dd>{kr(p.refund.amount)}</dd>
+          </dl>
+        </SimBox>
       )}
     </AppFrame>
   );

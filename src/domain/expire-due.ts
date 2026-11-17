@@ -2,6 +2,7 @@ import { and, eq, inArray, lte } from "drizzle-orm";
 import { listings, purchases } from "@/db/schema";
 import { endOfValidity, isPastValidity, stockholmDate } from "./dates";
 import type { Deps } from "./deps";
+import { completePurchaseTx } from "./completion";
 import { isDomainError } from "./errors";
 import { failPurchaseTx } from "./purchase-failure";
 import { transition } from "./transition";
@@ -149,6 +150,26 @@ function expirePastValidity(deps: Deps, now: Date): AfterCommit[] {
 
 // ------------------------------------------------------------------------------------------------
 
+// S06 – FR6: the reklamationsperiod's lapse completes a Levererat köp.
+const CLAIM_PERIOD_LAPSED = "reklamationsperioden löpte ut";
+
+/**
+ * A Levererat köp whose reklamationsperiod has run out (leverans + period ≤ now) is Avslutat and
+ * its säljare credited, through the one completion function. A Tvist köp is never touched.
+ */
+function completeLapsedClaimPeriods(deps: Deps, now: Date): AfterCommit[] {
+  const deliveredBy = new Date(now.getTime() - deps.config.claimPeriodMs);
+  const due = deps.db
+    .select({ id: purchases.id, listingId: purchases.listingId, amount: purchases.amount })
+    .from(purchases)
+    .where(and(eq(purchases.status, "delivered"), lte(purchases.deliveredAt, deliveredBy)))
+    .all();
+  for (const p of due) {
+    completePurchaseTx(deps.db, p, { from: "delivered", actorUserId: null, reason: CLAIM_PERIOD_LAPSED }, now);
+  }
+  return [];
+}
+
 /** The time rules in the order they apply. Stories add theirs here (ADR-005). */
 export const expiryRules: readonly ExpiryRule[] = [
   // S07: before the reservation rule, so the earlier of the two deadlines decides the orsak.
@@ -156,6 +177,8 @@ export const expiryRules: readonly ExpiryRule[] = [
   expireReservations,
   // S07: after it, so an annons the reservation rule just freed expires in the same call.
   expirePastValidity,
+  // S06: independent of the S07 rules (a Levererat köp has left Reserverad); appended last.
+  completeLapsedClaimPeriods,
 ];
 
 /**

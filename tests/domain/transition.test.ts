@@ -228,6 +228,61 @@ describe("transition", () => {
     }
   });
 
+  // S06
+  it("after-delivery transitions are allowed and others still refused", () => {
+    type PurchaseStatus = (typeof purchases.$inferSelect)["status"];
+    const deps = makeTestDeps();
+    const kalle = userId(deps.db, "Kalle");
+    const listing = firstSeededListing(deps);
+    const at = deps.clock.now();
+    const purchaseIn = (status: "delivered" | "disputed") => {
+      const id = transition(deps.db, {
+        entity: "purchase",
+        from: null,
+        to: "started",
+        actorUserId: kalle,
+        reason: "påbörjat",
+        at,
+        values: { listingId: listing.id, buyerId: kalle, amount: 100, createdAt: at },
+      });
+      deps.db.update(purchases).set({ status }).where(eq(purchases.id, id)).run();
+      return id;
+    };
+    const move = (id: number, from: PurchaseStatus, to: PurchaseStatus) => () =>
+      transition(deps.db, { entity: "purchase", id, from, to, actorUserId: null, reason: `${from} → ${to}`, at });
+
+    const allowed: [PurchaseStatus, PurchaseStatus][] = [
+      ["delivered", "completed"],
+      ["delivered", "disputed"],
+      ["disputed", "refunded"],
+      ["disputed", "completed"],
+    ];
+    for (const [from, to] of allowed) {
+      const id = purchaseIn(from as "delivered" | "disputed");
+      const run = move(id, from, to);
+      run();
+      expect(deps.db.select().from(purchases).where(eq(purchases.id, id)).get()!.status).toBe(to);
+      const history = historyOf(deps, id, "purchase");
+      expect(history.at(-1)).toMatchObject({ fromStatus: from, toStatus: to });
+      expect(run).toThrow(expect.objectContaining({ code: "transition_conflict" }));
+      expect(historyOf(deps, id, "purchase")).toHaveLength(history.length);
+    }
+
+    const refused: [PurchaseStatus, PurchaseStatus][] = [
+      ["refunded", "completed"],
+      ["completed", "disputed"],
+      ["completed", "refunded"],
+      ["delivered", "refunded"],
+      ["refunded", "disputed"],
+    ];
+    const id = purchaseIn("delivered");
+    for (const [from, to] of refused) {
+      expect(move(id, from, to), `${from} → ${to}`).toThrow(expect.objectContaining({ code: "transition_not_allowed" }));
+    }
+    expect(deps.db.select().from(purchases).where(eq(purchases.id, id)).get()!.status).toBe("delivered");
+  });
+
+  // S07
   it("listing expiry transitions are allowed and nothing else is added", () => {
     const deps = makeTestDeps();
     const listing = firstSeededListing(deps);

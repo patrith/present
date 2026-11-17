@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { isDomainError } from "@/domain/errors";
-import { approvePayment, declinePayment, startPurchase } from "@/domain/purchases";
+import { approvePayment, claimPurchase, confirmPurchase, declinePayment, startPurchase } from "@/domain/purchases";
 import { getCurrentDeps } from "../deps";
 import { requireUser } from "../session";
 import { type ActionResult, refusal } from "./result";
@@ -38,4 +38,28 @@ export async function approvePaymentAction(_prev: ActionResult, form: FormData):
 
 export async function declinePaymentAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
   return answerPayment(form, declinePayment);
+}
+
+/** "Kortet fungerade": a repeat, or a köp the period already completed, just shows its current status. */
+export async function confirmPurchaseAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
+  const user = await requireUser();
+  const purchaseId = Number(form.get("purchaseId"));
+  try {
+    await confirmPurchase(await getCurrentDeps(), user.id, purchaseId);
+  } catch (e) {
+    return refusal(e);
+  }
+  redirect(`/kop/${purchaseId}`);
+}
+
+/** "Skicka reklamation": refused with a message without a motivering or outside Levererat. */
+export async function claimPurchaseAction(_prev: ActionResult, form: FormData): Promise<ActionResult> {
+  const user = await requireUser();
+  const purchaseId = Number(form.get("purchaseId"));
+  try {
+    await claimPurchase(await getCurrentDeps(), user.id, purchaseId, String(form.get("claimReason") ?? ""));
+  } catch (e) {
+    return refusal(e);
+  }
+  redirect(`/kop/${purchaseId}`);
 }

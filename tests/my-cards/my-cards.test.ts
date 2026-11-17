@@ -31,10 +31,22 @@ describe("mina kort", () => {
 
     // Lisa: her mina kort, sökningen and the annons carry no trace of the code.
     const lisas = { mine: getMyCards(deps.db, lisa), search: searchListings(deps, lisa), view: getListing(deps.db, listingId) };
-    expect(lisas.mine).toEqual({ listings: [], purchases: [] });
+    expect(lisas.mine).toEqual({ listings: [], purchases: [], payoutBalance: 0 });
     expect(JSON.stringify(lisas)).not.toContain(code);
   });
 
+  // S06
+  it("seller sees payout balance", async () => {
+    const { deliveredPurchase } = await import("../purchases/delivered");
+    const { confirmPurchase } = await import("@/domain/purchases");
+    const { deps, sara, kalle, purchaseId } = await deliveredPurchase();
+    expect(getMyCards(deps.db, sara).payoutBalance).toBe(0);
+    await confirmPurchase(deps, kalle, purchaseId);
+    expect(getMyCards(deps.db, sara).payoutBalance).toBe(850);
+    expect(getMyCards(deps.db, kalle).payoutBalance).toBe(0);
+  });
+
+  // S07
   it("seller sees expired listing with reason", async () => {
     const deps = makeTestDeps();
     const sara = userId(deps.db, "Sara");

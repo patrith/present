@@ -115,6 +115,66 @@ describe("expireDue", () => {
     expect(d2.payments.countIn("authorized")).toBe(0);
     expect(d2.payments.countIn("voided")).toBe(1);
   });
+
+  // S06
+  it("claim period lapse completes and credits once", async () => {
+    const { confirmPurchase } = await import("@/domain/purchases");
+    const { CLAIM_PERIOD_MS, deliveredPurchase, payoutOf } = await import("../purchases/delivered");
+    const { deps, sara, purchaseId } = await deliveredPurchase();
+
+    // 11:59 the next day: still Levererat.
+    deps.clock.advance(CLAIM_PERIOD_MS - 60_000);
+    await expireDue(deps, deps.clock.now());
+    expect(purchaseRow(deps, purchaseId).status).toBe("delivered");
+    expect(payoutOf(deps, sara)).toBe(0);
+
+    // A Tvist köp in the same database is never touched.
+    const tvist = await deliveredPurchase(deps, "NK-0000-0003");
+    transition(deps.db, {
+      entity: "purchase",
+      id: tvist.purchaseId,
+      from: "delivered",
+      to: "disputed",
+      actorUserId: tvist.kalle,
+      reason: "köparen reklamerade",
+      at: deps.clock.now(),
+    });
+
+    deps.clock.advance(60_000); // 12:00 the next day
+    await expireDue(deps, deps.clock.now());
+    expect(purchaseRow(deps, purchaseId).status).toBe("completed");
+    expect(historyOf(deps, "purchase", purchaseId).at(-1)).toMatchObject({
+      toStatus: "completed",
+      actorUserId: null,
+      reason: "reklamationsperioden löpte ut",
+    });
+    expect(payoutOf(deps, sara)).toBe(850);
+
+    // Idempotent: a second call with the same now writes nothing.
+    const before = historyCount(deps);
+    await expireDue(deps, deps.clock.now());
+    expect(historyCount(deps)).toBe(before);
+    expect(payoutOf(deps, sara)).toBe(850);
+
+    // The Tvist köp, past its own period too, is unchanged and uncredited.
+    deps.clock.advance(CLAIM_PERIOD_MS);
+    await expireDue(deps, deps.clock.now());
+    expect(purchaseRow(deps, tvist.purchaseId).status).toBe("disputed");
+    expect(payoutOf(deps, sara)).toBe(850);
+
+    // Confirm racing expireDue at the boundary, 20 rounds: exactly one credit each.
+    for (let round = 0; round < 20; round++) {
+      const r = await deliveredPurchase(undefined, `NK-RACE-${round}`);
+      const at = new Date(r.deps.clock.now().getTime() + CLAIM_PERIOD_MS);
+      r.deps.clock.advance(CLAIM_PERIOD_MS);
+      const confirm = () => confirmPurchase(r.deps, r.kalle, r.purchaseId);
+      const expire = () => expireDue(r.deps, at);
+      await Promise.all(round % 2 === 0 ? [confirm(), expire()] : [expire(), confirm()]);
+      expect(purchaseRow(r.deps, r.purchaseId).status).toBe("completed");
+      expect(historyOf(r.deps, "purchase", r.purchaseId).filter((h) => h.toStatus === "completed")).toHaveLength(1);
+      expect(payoutOf(r.deps, r.sara)).toBe(850);
+    }
+  });
 });
 
 // S07 – FR8: utgång av annonser. ---------------------------------------------------------------

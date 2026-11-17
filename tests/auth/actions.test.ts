@@ -35,6 +35,7 @@ describe("server actions", () => {
     const listingActions = await import("@/server/actions/listings");
     const purchaseActions = await import("@/server/actions/purchases");
     const authActions = await import("@/server/actions/auth");
+    const disputeActions = await import("@/server/actions/disputes");
 
     const form = new FormData();
     form.set("merchantId", "NK");
@@ -48,12 +49,16 @@ describe("server actions", () => {
     const protectedActions: Array<[string, () => Promise<unknown>]> = [
       ...Object.entries(listingActions).map(([name, fn]) => [name, () => fn(undefined, form)] as [string, () => Promise<unknown>]),
       ...Object.entries(purchaseActions).map(([name, fn]) => [name, () => fn(undefined, form)] as [string, () => Promise<unknown>]),
+      ...Object.entries(disputeActions).map(([name, fn]) => [name, () => fn(undefined, form)] as [string, () => Promise<unknown>]),
       ["logOutAction", () => authActions.logOutAction()],
     ];
     expect(protectedActions.map(([name]) => name).sort()).toEqual(
       [
         "approvePaymentAction",
+        "claimPurchaseAction",
+        "confirmPurchaseAction",
         "declinePaymentAction",
+        "decideDisputeAction",
         "editListingAction",
         "logOutAction",
         "publishListingAction",

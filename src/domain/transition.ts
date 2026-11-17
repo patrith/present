@@ -46,6 +46,11 @@ export const allowedTransitions: { [E in Entity]: ReadonlyArray<readonly [Status
     ["authorized", "delivered"],
     ["started", "failed"],
     ["authorized", "failed"],
+    // S06 – FR6/FR7: avslut (bekräftelse, reklamationsperiodens utgång, avslagen tvist), reklamation, återbetalning.
+    ["delivered", "completed"],
+    ["delivered", "disputed"],
+    ["disputed", "refunded"],
+    ["disputed", "completed"],
   ],
 };
 
