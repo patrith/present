@@ -1,5 +1,14 @@
 import { type Page, expect, test } from "@playwright/test";
-import { expectNoHorizontalScroll, logIn, newUserPage, phones, publish, recordResponses } from "./helpers";
+import {
+  expectNoHorizontalScroll,
+  logIn,
+  newUserPage,
+  phones,
+  publish,
+  recordResponses,
+  shownPayout,
+  startBuying,
+} from "./helpers";
 
 // Run-unique suffix: every spec run publishes codes no earlier run used (see demo-flow.spec.ts).
 const run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
@@ -8,22 +17,18 @@ const MOTIVATION = "Kassan sa att koden redan är använd";
 
 /** Kalle buys the annons and approves the simulated payment; lands on the Levererat köp page. */
 async function buyAndReceive(kalle: Page, listingPath: string, code: string): Promise<string> {
-  await kalle.goto(listingPath);
-  await kalle.getByRole("button", { name: "Köp för 850 kr" }).click();
-  await kalle.waitForURL(/\/kop\/\d+$/);
+  const purchasePath = await startBuying(kalle, listingPath);
   await kalle.getByRole("button", { name: "Godkänn 850 kr" }).click();
   await expect(kalle.getByTestId("gift-card-code")).toHaveText(code);
   await expect(kalle.getByTestId("purchase-status")).toHaveText("Levererat");
-  return new URL(kalle.url()).pathname;
+  return purchasePath;
 }
 
 /** The kronor amount shown in Sara's "Simulerad utbetalning" box. */
 async function payoutShown(sara: Page): Promise<number> {
-  await sara.goto("/mina-kort");
-  const box = sara.locator(".simbox", { hasText: "Simulerad utbetalning" });
-  await expect(box).toBeVisible();
-  const text = await box.getByTestId("payout-balance").innerText();
-  return Number(text.match(/([\d\s ]+) kr/)![1].replace(/[\s ]/g, ""));
+  const payout = await shownPayout(sara);
+  await expect(sara.locator(".simbox", { hasText: "Simulerad utbetalning" })).toBeVisible();
+  return payout;
 }
 
 test("buyer confirms and seller sees simulated payout", async ({ browser }) => {

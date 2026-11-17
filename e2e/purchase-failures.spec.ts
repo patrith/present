@@ -1,5 +1,13 @@
 import { type Page, expect, test } from "@playwright/test";
-import { expectNoHorizontalScroll, logIn, newUserPage, phones, publish, recordResponses } from "./helpers";
+import {
+  expectNoHorizontalScroll,
+  logIn,
+  newUserPage,
+  phones,
+  publish,
+  recordResponses,
+  startBuying,
+} from "./helpers";
 
 // Run-unique suffix: every spec run publishes codes no earlier run used. Kept per spec: the specs share
 // one worker, so a suffix in ./helpers would repeat across specs that publish the same code prefix.
@@ -10,13 +18,6 @@ const ALREADY_RESERVED = "Annonsen är redan reserverad eller inte längre tillg
 async function purchaseCount(page: Page): Promise<number> {
   await page.goto("/mina-kort");
   return page.getByTestId("my-purchases").locator("a.card").count();
-}
-
-async function buy(page: Page, listingPath: string) {
-  await page.goto(listingPath);
-  await page.getByRole("button", { name: "Köp för 850 kr" }).click();
-  await page.waitForURL(/\/kop\/\d+$/);
-  await expect(page.getByText("Simulerad betalning", { exact: true })).toBeVisible();
 }
 
 test("two buyers at once get exactly one reservation", async ({ browser }) => {
@@ -67,7 +68,7 @@ test("declined payment and lower balance are explained", async ({ browser }) => 
   await logIn(kalle, phones.kalle);
 
   // Declined in the "Simulerad betalning" step: Misslyckat, and the annons is in sökningen again.
-  await buy(kalle, declinedPath);
+  await startBuying(kalle, declinedPath);
   await kalle.getByRole("button", { name: "Neka betalningen" }).click();
   await expect(kalle.getByTestId("purchase-status")).toHaveText("Misslyckat");
   await expect(kalle.getByTestId("purchase-failure")).toContainText("betalningen nekades");
@@ -78,7 +79,7 @@ test("declined payment and lower balance are explained", async ({ browser }) => 
   await expect(kalle.locator(`a.card[href="${declinedPath}"]`)).toBeVisible();
 
   // Approved for a DELVIS code: the butik reports 800 kr instead of 1 000 kr, nothing is drawn.
-  await buy(kalle, delvisPath);
+  await startBuying(kalle, delvisPath);
   await kalle.getByRole("button", { name: "Godkänn 850 kr" }).click();
   await expect(kalle.getByTestId("purchase-status")).toHaveText("Misslyckat");
   const explanation = kalle.getByTestId("purchase-failure");
