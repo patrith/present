@@ -202,3 +202,18 @@
 - Annons statushistorik is shown only to its säljare and köp statushistorik only to its köpare, plus the demoadministratör for a köp in Tvist (story S06).
 - The automated flow-1 run under 120 s proves the flow fits "≤ 2 min"; after this story the plan stops for the team's own look before ship: a timed human run of demo flow 1 (≤ 2 min) and a walkthrough of every simulated element in FR10's list. Neither is an agent gate.
 - Stories S03, S05 and S07's fixture-based e2e stay as they are.
+
+
+## Discovered Requirements
+
+- **Title**: Landed data and e2e facts the panel and mina kort build on
+  - **Description**:
+    - `PurchaseView` carries `failureReason`; `ListingDto`/`ListingViewDto` carry `flagReason`; the annons view's kontroll pill shows "Ej godkänd" while a flaggningsorsak is set.
+    - Statushistorik reasons already written: "ändrad: …", "rättad: …, kontrollerad (simulerat)", "återkallad av säljaren" (S03); S05's failure orsaker (e.g. "reservationen gick ut", the saldoavvikelse explanation in the köp's orsak, flaggningsorsak "saldoavvikelse").
+    - `getCurrentDeps()` (`src/server/deps.ts`) runs `expireDue` before a read; the demo panel's action may use it or call `expireDue` directly as TI01 says.
+    - e2e: sökningen redirects a logged-out visitor to `/logga-in?hanvisning=erbjudanden`; `e2e/search.spec.ts` relies on the seeded Åhléns annons having 4 days left for its short-validity warning, so a test that moves the demo clock must not run before it against the same database, or must reset it; e2e DB fixtures open `process.env.DATABASE_PATH ?? "data/e2e.db"`, so a config on another port needs the matching `DATABASE_PATH`.
+    - Login helpers are duplicated across `e2e/demo-flow.spec.ts`, `e2e/auth.spec.ts`, `e2e/manage-listing.spec.ts`, `e2e/purchase-failures.spec.ts`; extract them if this story adds another spec that needs them.
+  - **Rationale**: S03–S05 landed after this FIS was written.
+  - **Interpretation**: Build on these; keep the shared e2e database's seeded state intact for other specs.
+  - **Traced from**: S03/TI10, S04/TI06, S04/TI07, S05/TI09, S05/TI10
+  - **Date**: 2026-11-17

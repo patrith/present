@@ -192,3 +192,13 @@
 - A reklamation needs a non-empty motivering, since FR7 says "med en motivering".
 - Bekräftelse of a köp that is not Levererat (Tvist, Avslutat, Återbetalat) is refused as a disallowed transition and shows the current status.
 - The leverans tidpunkt is a köp column set in story S05's commit-point transaction when story S01's schema lacks one.
+
+
+## Discovered Requirements
+
+- **Title**: Join S05's `expireDue` rule shape and request-scoped deps
+  - **Description**: A rule in `expiryRules` (`src/domain/expire-due.ts`) is `(deps, now) => AfterCommit[]`: it makes its database transitions synchronously and returns the adapter calls (void, refund) to run after commit. The reklamationsperiod rule follows that shape. New server actions and pages that read or change köp use `getCurrentDeps()` (`src/server/deps.ts`), which runs `expireDue` first; this is the "call it first" path TI05 and the Constraint name. `PurchaseView` already carries `failureReason`; amounts format with `kronor` from `src/domain/money.ts`.
+  - **Rationale**: The FIS was written before S05 fixed the rule signature and the deps entry point.
+  - **Interpretation**: Use these as they are; add no second expiry entry point or second money formatter.
+  - **Traced from**: S05/TI07, S05/TI09
+  - **Date**: 2026-11-17

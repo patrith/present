@@ -171,3 +171,13 @@
 - The e2e writes a yesterday-dated Aktiv annons into the demo database through the project's db client, since publicering refuses a passed date (story S03) and the demo panel that moves the clock is story S08's.
 - The buyer learns of the expired köp on story S05's köp page; the köp's orsak in "mina kort" waits for story S08.
 - If neither story S03 nor story S04 has landed, this story creates the shared `Europe/Stockholm` end-of-day helper and they reuse it.
+
+
+## Discovered Requirements
+
+- **Title**: Reuse the landed end-of-day helper, expiry rule shape and failure path
+  - **Description**: S04 landed `endOfValidity` in `src/domain/dates.ts`, the single `Europe/Stockholm` end-of-day helper (00:00 the next Swedish day, DST-safe); the giltighet rule and the leverans condition use it, so the Settled Decision's "create the helper" branch does not apply. S03's past-date publish check compares calendar dates with `stockholmDate(now)`. A rule in `expiryRules` (`src/domain/expire-due.ts`) is `(deps, now) => AfterCommit[]`. The leverans commit point is `deliverPurchase` in `src/domain/purchases.ts`, conditioned on `gt(listings.reservedUntil, now)`; add the giltighet condition beside it – on zero rows it already runs `expireDue(now)` and returns the current köp. Reserverad expiry reuses `failPurchaseTx` (`src/domain/purchase-failure.ts`) with `listingTo` widened to `expired`. Annons-to-Utgången transitions for Aktiv and Flaggad are new rows in `src/domain/transition.ts`, which now also holds S03's and S05's rows.
+  - **Rationale**: The FIS was written before S03–S05 merged, and anticipated but could not name these.
+  - **Interpretation**: Extend these; add no second helper, rule mechanism or failure path.
+  - **Traced from**: S04/TI01, S05/TI06, S05/TI07
+  - **Date**: 2026-11-17
