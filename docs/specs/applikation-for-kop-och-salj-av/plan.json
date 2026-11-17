@@ -335,7 +335,7 @@
         "S06",
         "S07"
       ],
-      "status": "pending",
+      "status": "in-progress",
       "fis": "s08-mina-kort-och-demolage.md",
       "completedTaskIds": [],
       "scope": "Förtjockar mina kort till hela FR9 (alla statusar med orsak, utbetalningssaldo, kod för Levererat/Avslutat/Tvist, statushistorik med tidpunkt, tomma lägen) och slutför FR10: demopanelen märkt \"Simulerad tid\" som flyttar klockan och tillämpar alla tidsregler, samt en genomgång som bevisar att varje simulerat element i FR10:s lista är märkt. Avslutas med att hela demoflödet och ett felflöde körs end-to-end mot PRD:ns Success Metrics.",
