@@ -31,9 +31,9 @@ describe("sweep", () => {
 
     // Past reserved_until, nobody reads anything: one tick later the annons is Aktiv again.
     deps.clock.advance(5 * 60_000 + 1);
-    expect(listingRow(deps, listingId).status).toBe("reserved");
+    expect(listingRow(deps.db, listingId).status).toBe("reserved");
     await vi.advanceTimersByTimeAsync(SWEEP_INTERVAL_MS);
-    expect(listingRow(deps, listingId).status).toBe("active");
+    expect(listingRow(deps.db, listingId).status).toBe("active");
     expect(purchaseRow(deps, purchaseId)).toMatchObject({ status: "failed", failureReason: "reservationen gick ut" });
   });
 

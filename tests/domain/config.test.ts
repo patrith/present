@@ -14,13 +14,13 @@ describe("config", () => {
       RESERVATION_MINUTES: "2",
       CLAIM_PERIOD_HOURS: "1",
       LOGIN_CODE_MINUTES: "3",
-      VERIFIER_TIMEOUT_SECONDS: "0.5",
+      VERIFIER_TIMEOUT_SECONDS: "0.05",
       DEMO_MODE: "false",
     });
     expect(overridden.reservationMs).toBe(2 * 60_000);
     expect(overridden.claimPeriodMs).toBe(3_600_000);
     expect(overridden.loginCodeValidityMs).toBe(3 * 60_000);
-    expect(overridden.verifierTimeoutMs).toBe(500);
+    expect(overridden.verifierTimeoutMs).toBe(50);
     expect(overridden.demoMode).toBe(false);
 
     expect(() => loadConfig({ RESERVATION_MINUTES: "zero" })).toThrow(/RESERVATION_MINUTES/);

@@ -30,7 +30,7 @@ describe("reserve", () => {
       const created = deps.db.select().from(purchases).where(eq(purchases.listingId, listingId)).all();
       expect(created).toHaveLength(1);
       expect(created[0]).toMatchObject({ status: "started", id: (won[0] as PromiseFulfilledResult<number>).value });
-      expect(listingRow(deps, listingId)).toMatchObject({ status: "reserved", reservedById: created[0].buyerId });
+      expect(listingRow(deps.db, listingId)).toMatchObject({ status: "reserved", reservedById: created[0].buyerId });
     }
 
     // The same buyer again (second tab): the same köp, no second köp or reservation.
@@ -53,7 +53,7 @@ describe("reserve", () => {
       expect.objectContaining({ code: "forbidden", message: "Du kan inte köpa din egen annons." }),
     );
     expect(deps.db.select().from(purchases).where(eq(purchases.listingId, own)).all()).toHaveLength(0);
-    expect(listingRow(deps, own).status).toBe("active");
+    expect(listingRow(deps.db, own).status).toBe("active");
     expect(historyOf(deps, "listing", own)).toHaveLength(1);
   });
 });

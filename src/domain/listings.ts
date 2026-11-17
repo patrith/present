@@ -1,9 +1,16 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { listings, merchants, users, type ListingStatus } from "@/db/schema";
+import { listingCodes, listings, merchants, users, type ListingStatus } from "@/db/schema";
+import type { Clock } from "./clock";
+import { stockholmDate } from "./dates";
 import type { Deps } from "./deps";
-import { DomainError } from "./errors";
-import { transition } from "./transition";
+import { DomainError, isDomainError } from "./errors";
+import { giftCardCodeFor } from "./gift-card-code";
+import { checkGiftCard, publishCheckRefusal } from "./gift-card-check";
+import { compareDiscountDesc, type ListingTerms, listingTerms } from "./listing-terms";
+import { kronor } from "./money";
+import { listingStatusLabel } from "./status";
+import { type DbOrTx, transition } from "./transition";
 
 /** What anyone may see of an annons. Never carries the presentkortskod. */
 export type ListingDto = {
@@ -16,7 +23,18 @@ export type ListingDto = {
   price: number;
   validUntil: string;
   status: ListingStatus;
+  /** Flaggningsorsak while Flaggad, e.g. "saldoavvikelse". */
+  flagReason: string | null;
 };
+
+/** An annons as a köpare compares it: the code-free DTO plus rabatt, giltighet warning and kontrollstatus. */
+export type ListingViewDto = ListingDto & ListingTerms;
+
+/** Sökningen's sort keys: högst rabatt (default), lägst pris, längst kvarvarande giltighet. */
+export const searchSorts = ["discount", "price", "validity"] as const;
+export type SearchSort = (typeof searchSorts)[number];
+
+export type SearchQuery = { merchantId?: string; sort?: SearchSort };
 
 export type PublishInput = {
   merchantId: string;
@@ -38,7 +56,21 @@ const dtoColumns = {
   price: listings.price,
   validUntil: listings.validUntil,
   status: listings.status,
+  flagReason: listings.flagReason,
 };
+
+type SortableRow = ListingDto & { createdAt: Date };
+
+const byOrder: Record<SearchSort, (a: SortableRow, b: SortableRow) => number> = {
+  discount: compareDiscountDesc,
+  price: (a, b) => a.price - b.price,
+  // YYYY-MM-DD orders like the end instant it names.
+  validity: (a, b) => b.validUntil.localeCompare(a.validUntil),
+};
+
+/** Ties in every sortering go to the earliest publication. */
+const byPublication = (a: SortableRow, b: SortableRow) =>
+  a.createdAt.getTime() - b.createdAt.getTime() || a.id - b.id;
 
 /** Annonser joined with their handlare and säljare, selecting only ListingDto columns. */
 function selectListingDtos(db: Db) {
@@ -53,57 +85,271 @@ export function listMerchants(db: Db): { id: string; name: string }[] {
   return db.select().from(merchants).orderBy(asc(merchants.name)).all();
 }
 
+const invalid = (message: string, field: string) => new DomainError("invalid_input", message, field);
+
+/** A real calendar date written YYYY-MM-DD. */
+function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function validateCodeAndAmounts(giftCardCode: string, balance: number, price: number): void {
+  if (giftCardCode.trim() === "") throw invalid("Ange presentkortskoden.", "giftCardCode");
+  if (!Number.isInteger(balance) || balance <= 0) throw invalid("Ange saldot i hela kronor.", "balance");
+  if (!Number.isInteger(price)) throw invalid("Ange priset i hela kronor.", "price");
+}
+
 function validatePublishInput(db: Db, input: PublishInput): void {
-  const invalid = (msg: string) => new DomainError("invalid_input", msg);
   if (!db.select({ id: merchants.id }).from(merchants).where(eq(merchants.id, input.merchantId)).get())
-    throw invalid("Välj en handlare i listan.");
-  if (input.giftCardCode.trim() === "") throw invalid("Ange presentkortskoden.");
-  if (!Number.isInteger(input.balance) || input.balance <= 0) throw invalid("Ange saldot i hela kronor.");
-  if (!Number.isInteger(input.price) || input.price <= 0) throw invalid("Ange priset i hela kronor.");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.validUntil)) throw invalid("Ange giltighetsdatum.");
+    throw invalid("Välj en handlare i listan.", "merchantId");
+  validateCodeAndAmounts(input.giftCardCode, input.balance, input.price);
+  if (!isCalendarDate(input.validUntil)) throw invalid("Ange giltighetsdatum.", "validUntil");
+}
+
+/** Prisregeln: 0 kr < pris < saldo. */
+function assertPriceRule(price: number, balance: number): void {
+  if (price <= 0 || price >= balance) {
+    throw invalid(`Priset måste vara större än 0 kr och lägre än saldot ${kronor(balance)}.`, "price");
+  }
+}
+
+/** A giltighetsdatum is valid to the end of its day in Swedish time. */
+function assertNotExpired(clock: Clock, validUntil: string): void {
+  if (validUntil < stockholmDate(clock.now())) {
+    throw invalid("Giltighetsdatumet har passerat. Ett kort som har gått ut kan inte säljas.", "validUntil");
+  }
+}
+
+const duplicateCode = () =>
+  new DomainError(
+    "duplicate_code",
+    "Presentkortskoden har redan förekommit i en annons hos den här handlaren och kan inte annonseras igen.",
+    "giftCardCode",
+  );
+
+/** Dubblettkontroll: a code once held by any annons for a handlare is never listed again for it. */
+function assertCodeNeverListed(db: Db, merchantId: string, giftCardCode: string): void {
+  const held = db
+    .select({ id: listingCodes.id })
+    .from(listingCodes)
+    .where(and(eq(listingCodes.merchantId, merchantId), eq(listingCodes.giftCardCode, giftCardCode)))
+    .get();
+  if (held) throw duplicateCode();
+}
+
+/** A concurrent duplicate that passed the pre-check fails on the unique index: report it as one. */
+function duplicateOr(e: unknown): unknown {
+  const sqliteCode = (e as { code?: unknown } | null)?.code;
+  return sqliteCode === "SQLITE_CONSTRAINT_UNIQUE" && String((e as Error).message).includes("listing_codes")
+    ? duplicateCode()
+    : e;
+}
+
+function recordCode(db: DbOrTx, listingId: number, merchantId: string, giftCardCode: string): void {
+  db.insert(listingCodes).values({ listingId, merchantId, giftCardCode }).run();
+}
+
+export type NewListing = PublishInput & { sellerId: number };
+
+/**
+ * Creates an Aktiv annons and records its presentkortskod for the dubblettkontroll, in one
+ * transaction (joining the caller's). Used by publicering and the demo seed.
+ */
+export function insertActiveListing(db: DbOrTx, listing: NewListing, at: Date): number {
+  return db.transaction((tx) => {
+    const id = transition(tx, {
+      entity: "listing",
+      from: null,
+      to: "active",
+      actorUserId: listing.sellerId,
+      reason: PUBLISH_REASON,
+      at,
+      values: { ...listing, createdAt: at },
+    });
+    recordCode(tx, id, listing.merchantId, listing.giftCardCode);
+    return id;
+  });
 }
 
 /**
- * Runs the butikskontroll at publicering and, when it answers giltig with the same saldo,
- * creates the annons as Aktiv. Any other outcome creates nothing (specific messages: story S03).
+ * Publicering: inputs, prisregel and giltighetsdatum, then the dubblettkontroll, then the
+ * butikskontroll; only giltig with the same saldo creates the annons as Aktiv.
  */
 export async function publishListing(deps: Deps, sellerId: number, input: PublishInput): Promise<number> {
   validatePublishInput(deps.db, input);
   const giftCardCode = input.giftCardCode.trim();
-  const check = await deps.verifier.verify({ code: giftCardCode, declaredBalance: input.balance, phase: "publish" });
-  if (check.outcome !== "valid" || check.balance !== input.balance) {
-    throw new DomainError("verification_failed", "Butikskontrollen godkände inte kortet. Annonsen publicerades inte.");
+  assertPriceRule(input.price, input.balance);
+  assertNotExpired(deps.clock, input.validUntil);
+  assertCodeNeverListed(deps.db, input.merchantId, giftCardCode);
+  const check = await checkGiftCard(deps, { code: giftCardCode, declaredBalance: input.balance, phase: "publish" });
+  const refused = publishCheckRefusal(check, input.balance);
+  if (refused) throw refused;
+  try {
+    return insertActiveListing(deps.db, { ...input, giftCardCode, sellerId }, deps.clock.now());
+  } catch (e) {
+    throw duplicateOr(e);
   }
-  const now = deps.clock.now();
-  return transition(deps.db, {
-    entity: "listing",
-    from: null,
-    to: "active",
-    actorUserId: sellerId,
-    reason: PUBLISH_REASON,
-    at: now,
-    values: {
-      sellerId,
-      merchantId: input.merchantId,
-      giftCardCode,
-      balance: input.balance,
-      price: input.price,
-      validUntil: input.validUntil,
-      createdAt: now,
-    },
-  });
 }
 
-/** Sökningen: every Aktiv annons (filters, sorting and own-listing exclusion: story S04). */
-export function searchListings(db: Db): ListingDto[] {
-  return selectListingDtos(db)
-    .where(eq(listings.status, "active"))
-    .orderBy(asc(listings.id))
+/** Unknown annons and someone else's annons are refused alike, so an annons id reveals nothing. */
+const notFoundOrNotYours = () => new DomainError("not_found", "Annonsen finns inte eller är inte din.");
+
+function ownListing(db: Db, userId: number, listingId: number) {
+  const row = db
+    .select({
+      sellerId: listings.sellerId,
+      merchantId: listings.merchantId,
+      balance: listings.balance,
+      price: listings.price,
+      status: listings.status,
+    })
+    .from(listings)
+    .where(eq(listings.id, listingId))
+    .get();
+  if (!row || row.sellerId !== userId) throw notFoundOrNotYours();
+  return { ...row, giftCardCode: giftCardCodeFor(db, userId, listingId)! };
+}
+
+/** The säljare may change or withdraw an annons only while it is Aktiv or Flaggad. */
+function changeableStatus(status: ListingStatus, verb: string): "active" | "flagged" {
+  if (status === "active" || status === "flagged") return status;
+  throw new DomainError("listing_locked", `Annonsen har status ${listingStatusLabel[status]} och kan inte ${verb}.`);
+}
+
+/** After the conditional write found the status changed meanwhile: refuse with the status now. */
+function refuseWithCurrentStatus(db: Db, listingId: number, verb: string): never {
+  const row = db.select({ status: listings.status }).from(listings).where(eq(listings.id, listingId)).get()!;
+  changeableStatus(row.status, verb);
+  throw new DomainError("listing_locked", "Annonsen ändrades samtidigt. Ladda om sidan och försök igen.");
+}
+
+export type ListingChanges = { giftCardCode?: string; balance?: number; price?: number };
+
+/**
+ * The säljare changes pris, presentkortskod or saldo of an Aktiv or Flaggad annons. A pris-only
+ * change on an Aktiv annons saves under the prisregel without a butikskontroll; a changed code or
+ * saldo also takes the dubblettkontroll and a new butikskontroll at publicering phase, and only
+ * giltig with the same saldo saves it – leaving the annons Aktiv with its flaggningsorsak cleared.
+ * The write is conditioned on the status read before the butikskontroll (ADR-003).
+ */
+export async function editListing(
+  deps: Deps,
+  userId: number,
+  listingId: number,
+  changes: ListingChanges,
+): Promise<void> {
+  const verb = "ändras";
+  const listing = ownListing(deps.db, userId, listingId);
+  const from = changeableStatus(listing.status, verb);
+  const giftCardCode = changes.giftCardCode?.trim() ?? listing.giftCardCode;
+  const balance = changes.balance ?? listing.balance;
+  const price = changes.price ?? listing.price;
+  validateCodeAndAmounts(giftCardCode, balance, price);
+
+  const codeChanged = giftCardCode !== listing.giftCardCode;
+  const balanceChanged = balance !== listing.balance;
+  const needsCheck = codeChanged || balanceChanged;
+  if (!needsCheck && from === "flagged") {
+    throw new DomainError(
+      "invalid_input",
+      "En flaggad annons kan inte bara få nytt pris. Rätta presentkortskoden eller saldot.",
+    );
+  }
+  if (!needsCheck && price === listing.price) throw invalid("Ange ett nytt pris.", "price");
+  assertPriceRule(price, balance);
+  if (codeChanged) assertCodeNeverListed(deps.db, listing.merchantId, giftCardCode);
+  if (needsCheck) {
+    const check = await checkGiftCard(deps, { code: giftCardCode, declaredBalance: balance, phase: "publish" });
+    const refused = publishCheckRefusal(check, balance);
+    if (refused) throw refused;
+  }
+
+  const changed = [
+    codeChanged && "presentkortskod ändrad",
+    balanceChanged && `saldo ${kronor(listing.balance)} → ${kronor(balance)}`,
+    price !== listing.price && `pris ${kronor(listing.price)} → ${kronor(price)}`,
+  ].filter(Boolean);
+  const checked = needsCheck ? ", kontrollerad (simulerat)" : "";
+  const reason = `${from === "flagged" ? "rättad" : "ändrad"}: ${changed.join(", ")}${checked}`;
+  try {
+    deps.db.transaction((tx) => {
+      transition(tx, {
+        entity: "listing",
+        id: listingId,
+        from,
+        to: "active",
+        actorUserId: userId,
+        reason,
+        at: deps.clock.now(),
+        set: { giftCardCode, balance, price, flagReason: null },
+      });
+      if (codeChanged) recordCode(tx, listingId, listing.merchantId, giftCardCode);
+    });
+  } catch (e) {
+    if (isDomainError(e) && e.code === "transition_conflict") refuseWithCurrentStatus(deps.db, listingId, verb);
+    throw duplicateOr(e);
+  }
+}
+
+/** Återkallelse: the säljare withdraws an Aktiv or Flaggad annons, which leaves sökningen. */
+export function withdrawListing(deps: Pick<Deps, "db" | "clock">, userId: number, listingId: number): void {
+  const verb = "återkallas";
+  const listing = ownListing(deps.db, userId, listingId);
+  const from = changeableStatus(listing.status, verb);
+  try {
+    transition(deps.db, {
+      entity: "listing",
+      id: listingId,
+      from,
+      to: "withdrawn",
+      actorUserId: userId,
+      reason: "återkallad av säljaren",
+      at: deps.clock.now(),
+    });
+  } catch (e) {
+    if (isDomainError(e) && e.code === "transition_conflict") refuseWithCurrentStatus(deps.db, listingId, verb);
+    throw e;
+  }
+}
+
+/**
+ * Sökningen: every Aktiv annons of other säljare, optionally at one handlare, ordered by the chosen
+ * sortering (default högst rabatt) with ties to the earliest publication. Never carries the code.
+ */
+export function searchListings(
+  deps: Pick<Deps, "db" | "clock">,
+  viewerId: number,
+  query: SearchQuery = {},
+): ListingViewDto[] {
+  const rows: SortableRow[] = deps.db
+    .select({ ...dtoColumns, createdAt: listings.createdAt })
+    .from(listings)
+    .innerJoin(merchants, eq(merchants.id, listings.merchantId))
+    .innerJoin(users, eq(users.id, listings.sellerId))
+    .where(
+      and(
+        eq(listings.status, "active"),
+        ne(listings.sellerId, viewerId),
+        query.merchantId === undefined ? undefined : eq(listings.merchantId, query.merchantId),
+      ),
+    )
     .all();
+  const order = byOrder[query.sort ?? "discount"];
+  const now = deps.clock.now();
+  return rows
+    .sort((a, b) => order(a, b) || byPublication(a, b))
+    .map(({ createdAt: _publishedAt, ...dto }) => ({ ...dto, ...listingTerms(dto, now) }));
 }
 
 export function getListing(db: Db, listingId: number): ListingDto | undefined {
   return selectListingDtos(db).where(eq(listings.id, listingId)).get();
+}
+
+/** The annons view: the code-free DTO with what a köpare needs before a köp. */
+export function getListingView(deps: Pick<Deps, "db" | "clock">, listingId: number): ListingViewDto | undefined {
+  const listing = getListing(deps.db, listingId);
+  return listing && { ...listing, ...listingTerms(listing, deps.clock.now()) };
 }
 
 export function listingsOfSeller(db: Db, sellerId: number): ListingDto[] {

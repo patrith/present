@@ -25,7 +25,7 @@ describe("expiry against leverans", () => {
         at: deps.clock.now(),
         set: { authorizationId: besked.authorizationId },
       });
-      const reservedUntil = listingRow(deps, listingId).reservedUntil!;
+      const reservedUntil = listingRow(deps.db, listingId).reservedUntil!;
 
       // Half the rounds with the Clock exactly at reserved_until, half one millisecond before it
       // (where both are eligible and whichever commits first wins); the call order alternates.
@@ -35,7 +35,7 @@ describe("expiry against leverans", () => {
       await Promise.all(round % 2 === 0 ? [expire(), deliver()] : [deliver(), expire()]);
 
       const purchase = purchaseRow(deps, purchaseId);
-      const listing = listingRow(deps, listingId);
+      const listing = listingRow(deps.db, listingId);
       const outcome = {
         purchase: purchase.status,
         listing: listing.status,

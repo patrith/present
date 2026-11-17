@@ -33,14 +33,14 @@ describe("butikskontroll timeout", () => {
     const outcome = await approvePayment(deps, kalle, purchaseId);
     expect(outcome).toEqual({ kind: "failed", reason: "butikskontrollen svarade inte" });
     expect(purchaseRow(deps, purchaseId)).toMatchObject({ status: "failed", failureReason: "butikskontrollen svarade inte" });
-    expect(listingRow(deps, listingId).status).toBe("active");
+    expect(listingRow(deps.db, listingId).status).toBe("active");
     const historyCount = historyOf(deps, "purchase", purchaseId).length + historyOf(deps, "listing", listingId).length;
 
     // The late giltig answer changes nothing.
     await verifier.answered;
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(purchaseRow(deps, purchaseId).status).toBe("failed");
-    expect(listingRow(deps, listingId).status).toBe("active");
+    expect(listingRow(deps.db, listingId).status).toBe("active");
     expect(deps.payments.totalCaptures()).toBe(0);
     expect(deps.payments.countIn("authorized")).toBe(0);
     expect(historyOf(deps, "purchase", purchaseId).length + historyOf(deps, "listing", listingId).length).toBe(

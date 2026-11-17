@@ -1,4 +1,4 @@
-import { ActionForm } from "@/components/action-form";
+import { ActionForm, FieldError } from "@/components/action-form";
 import { AppFrame } from "@/components/app-frame";
 import { listMerchants } from "@/domain/listings";
 import { publishListingAction } from "@/server/actions/listings";
@@ -22,10 +22,12 @@ export default async function SellPage() {
             ))}
           </select>
         </label>
+        <FieldError name="merchantId" />
         <label className="field">
           Presentkortskod
           <input name="giftCardCode" placeholder="t.ex. NK-1234-5678" autoComplete="off" required />
         </label>
+        <FieldError name="giftCardCode" />
         <div className="pair">
           <label className="field">
             Saldo (kr)
@@ -36,10 +38,13 @@ export default async function SellPage() {
             <input name="price" type="number" min={1} step={1} inputMode="numeric" required />
           </label>
         </div>
+        <FieldError name="balance" />
+        <FieldError name="price" />
         <label className="field">
           Giltigt till och med
           <input name="validUntil" type="date" required />
         </label>
+        <FieldError name="validUntil" />
         <div className="note">
           Kortet kontrolleras hos butiken (simulerat) innan annonsen publiceras. Koden visas bara för köparen efter köpet.
         </div>

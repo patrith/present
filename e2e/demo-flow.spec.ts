@@ -154,7 +154,9 @@ test("simulated steps are labelled", async ({ browser }) => {
 test("pages redirect a visitor without a session to inloggning", async ({ page }) => {
   for (const path of ["/", "/erbjudanden", "/salj", "/mina-kort", "/annons/1", "/kop/1"]) {
     await page.goto(path);
-    await expect(page, `${path} without a session`).toHaveURL(/\/logga-in$/);
+    // Sökningen adds its hint (story S04); the other pages go to plain inloggning.
+    const login = path === "/erbjudanden" ? /\/logga-in\?hanvisning=erbjudanden$/ : /\/logga-in$/;
+    await expect(page, `${path} without a session`).toHaveURL(login);
   }
 });
 

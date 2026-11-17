@@ -25,7 +25,7 @@ describe("betalningsbesked", () => {
       // The second besked returns the köp's current status.
       expect(outcomes.find((o) => o.kind !== "delivered"), ordering).toMatchObject({ kind: "unchanged" });
       expect(purchaseRow(deps, purchaseId).status).toBe("delivered");
-      expect(listingRow(deps, listingId).status).toBe("sold");
+      expect(listingRow(deps.db, listingId).status).toBe("sold");
       expect(deps.payments.captureCount(besked.authorizationId)).toBe(1);
       expect(deps.payments.countIn("voided")).toBe(0);
 

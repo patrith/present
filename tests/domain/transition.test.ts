@@ -1,9 +1,9 @@
 import { and, eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { listings, purchases, statusHistory } from "@/db/schema";
+import { listings, purchases, statusHistory, type ListingStatus } from "@/db/schema";
 import { DomainError } from "@/domain/errors";
 import { transition } from "@/domain/transition";
-import { makeTestDeps, userId } from "../helpers";
+import { forceListingStatus, makeTestDeps, userId } from "../helpers";
 
 function historyOf(deps: ReturnType<typeof makeTestDeps>, id: number, entityType: "listing" | "purchase" = "listing") {
   return deps.db
@@ -175,5 +175,56 @@ describe("transition", () => {
       transition(deps.db, { entity: "listing", id: first.id, from: "sold", to: "active", actorUserId: null, reason: "x", at }),
     ).toThrow(expect.objectContaining({ code: "transition_not_allowed" }));
     expect(deps.db.select().from(purchases).where(eq(purchases.id, started)).get()!.status).toBe("failed");
+  });
+
+  it("listing management transitions are allowed and nothing else is added", () => {
+    const deps = makeTestDeps();
+    const sara = userId(deps.db, "Sara");
+    const listing = firstSeededListing(deps);
+    const move = (from: ListingStatus, to: ListingStatus) =>
+      transition(deps.db, {
+        entity: "listing",
+        id: listing.id,
+        from,
+        to,
+        actorUserId: sara,
+        reason: `${from} → ${to}`,
+        at: deps.clock.now(),
+      });
+    const allowed: [ListingStatus, ListingStatus][] = [
+      ["active", "active"],
+      ["active", "withdrawn"],
+      ["flagged", "active"],
+      ["flagged", "withdrawn"],
+    ];
+    for (const [from, to] of allowed) {
+      forceListingStatus(deps.db, listing.id, from);
+      const historyBefore = historyOf(deps, listing.id).length;
+      move(from, to);
+      expect(deps.db.select().from(listings).where(eq(listings.id, listing.id)).get()!.status).toBe(to);
+      const history = historyOf(deps, listing.id);
+      expect(history).toHaveLength(historyBefore + 1);
+      expect(history.at(-1)).toMatchObject({ fromStatus: from, toStatus: to, actorUserId: sara });
+    }
+
+    const refused: [ListingStatus, ListingStatus][] = [
+      // reserved → active is story S05's FR5 row (a failed köp releases the annons), not an S03 addition.
+      ["reserved", "withdrawn"],
+      ["sold", "withdrawn"],
+      ["sold", "active"],
+      ["expired", "withdrawn"],
+      ["expired", "active"],
+      ["withdrawn", "active"],
+      ["withdrawn", "withdrawn"],
+    ];
+    for (const [from, to] of refused) {
+      forceListingStatus(deps.db, listing.id, from);
+      const historyBefore = historyOf(deps, listing.id).length;
+      expect(() => move(from, to), `${from} → ${to}`).toThrow(
+        expect.objectContaining({ code: "transition_not_allowed" }),
+      );
+      expect(deps.db.select().from(listings).where(eq(listings.id, listing.id)).get()!.status).toBe(from);
+      expect(historyOf(deps, listing.id)).toHaveLength(historyBefore);
+    }
   });
 });

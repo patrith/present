@@ -46,14 +46,14 @@ describe("expireDue", () => {
       // Not yet due at 12:04:59.
       deps.clock.advance(5 * 60_000 - 1_000);
       await expireDue(deps, deps.clock.now());
-      expect(listingRow(deps, listingId).status).toBe("reserved");
+      expect(listingRow(deps.db, listingId).status).toBe("reserved");
 
       deps.clock.advance(2_000); // 12:05:01
       await expireDue(deps, deps.clock.now());
 
       expect(purchaseRow(deps, purchaseId)).toMatchObject({ status: "failed", failureReason: "reservationen gick ut" });
-      expect(listingRow(deps, listingId)).toMatchObject({ status: "active", reservedById: null, reservedUntil: null });
-      expect(searchListings(deps.db).some((l) => l.id === listingId)).toBe(true);
+      expect(listingRow(deps.db, listingId)).toMatchObject({ status: "active", reservedById: null, reservedUntil: null });
+      expect(searchListings(deps, userId(deps.db, "Lisa")).some((l) => l.id === listingId)).toBe(true);
       expect(historyOf(deps, "purchase", purchaseId).at(-1)).toMatchObject({
         toStatus: "failed",
         actorUserId: null,
@@ -70,11 +70,11 @@ describe("expireDue", () => {
       if (authorizationId) expect(deps.payments.captureCount(authorizationId)).toBe(0);
 
       // Idempotent: a second call with the same now changes no row and writes no statushistorik.
-      const rows = { purchase: purchaseRow(deps, purchaseId), listing: listingRow(deps, listingId) };
+      const rows = { purchase: purchaseRow(deps, purchaseId), listing: listingRow(deps.db, listingId) };
       const written = historyCount(deps);
       await expireDue(deps, deps.clock.now());
       expect(purchaseRow(deps, purchaseId)).toEqual(rows.purchase);
-      expect(listingRow(deps, listingId)).toEqual(rows.listing);
+      expect(listingRow(deps.db, listingId)).toEqual(rows.listing);
       expect(historyCount(deps)).toBe(written);
 
       // An approval after expiry keeps no authorization and draws nothing.
@@ -93,7 +93,7 @@ describe("expireDue", () => {
     const outcome = await approvePayment(deps, kalle, purchaseId);
     expect(outcome).toEqual({ kind: "unchanged", status: "failed" });
     expect(purchaseRow(deps, purchaseId)).toMatchObject({ status: "failed", failureReason: "reservationen gick ut" });
-    expect(listingRow(deps, listingId).status).toBe("active");
+    expect(listingRow(deps.db, listingId).status).toBe("active");
     expect(deps.payments.countIn("authorized")).toBe(0);
     expect(deps.payments.totalCaptures()).toBe(0);
 

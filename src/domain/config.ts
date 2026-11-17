@@ -5,7 +5,7 @@ export interface Config {
   claimPeriodMs: number;
   /** How long an inloggningskod stays valid. */
   loginCodeValidityMs: number;
-  /** How long the butikskontroll at köp may take before it counts as no answer. */
+  /** How long the butikskontroll (at publicering, edit and köp) may take before it counts as inget svar. */
   verifierTimeoutMs: number;
   /** Demoläge: on unless DEMO_MODE=false. */
   demoMode: boolean;

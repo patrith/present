@@ -1,10 +1,13 @@
 "use client";
 
-import { startTransition, useActionState } from "react";
+import { createContext, startTransition, useActionState, useContext } from "react";
 import type { ActionResult } from "@/server/actions/result";
 
+const ResultContext = createContext<ActionResult>(undefined);
+
 /**
- * A form posting to a server action, showing the action's refusal message under it.
+ * A form posting to a server action. A refusal that names a field shows at that field's
+ * FieldError; any other refusal shows under the form.
  * With JavaScript it submits through onSubmit, so a refusal keeps what the user typed
  * (a form `action` alone resets the fields); without JavaScript the `action` still posts.
  */
@@ -29,12 +32,23 @@ export function ActionForm({
       className={className}
       aria-busy={pending}
     >
-      {children}
-      {result?.error && (
+      <ResultContext.Provider value={result}>{children}</ResultContext.Provider>
+      {result?.error && !result.field && (
         <div className="note bad" role="alert">
           {result.error}
         </div>
       )}
     </form>
+  );
+}
+
+/** The enclosing ActionForm's refusal for the field `name`, shown where the field is. */
+export function FieldError({ name }: { name: string }) {
+  const result = useContext(ResultContext);
+  if (!result?.error || result.field !== name) return null;
+  return (
+    <div className="note bad" role="alert" data-field={name}>
+      {result.error}
+    </div>
   );
 }

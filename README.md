@@ -23,7 +23,7 @@ Inställningar via miljövariabler:
 | `RESERVATION_MINUTES` | `5` | Reservationstid för en annons under köp |
 | `CLAIM_PERIOD_HOURS` | `24` | Reklamationsperiod efter leverans |
 | `LOGIN_CODE_MINUTES` | `10` | Hur länge en inloggningskod gäller |
-| `VERIFIER_TIMEOUT_SECONDS` | `5` | Hur länge butikskontrollen vid köp får ta innan den räknas som inget svar |
+| `VERIFIER_TIMEOUT_SECONDS` | `5` | Hur länge butikskontrollen (vid publicering, ändring och köp) får ta innan den räknas som inget svar |
 | `DEMO_MODE` | på | `false` stänger av demoläget (systemklocka i stället för simulerad klocka) |
 | `DATABASE_PATH` | `data/demo.db` | Databasfilen |
 

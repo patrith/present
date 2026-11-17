@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { listings } from "@/db/schema";
 import { giftCardCodeFor } from "@/domain/gift-card-code";
-import { kr } from "@/domain/money";
+import { kronor } from "@/domain/money";
 import { searchListings } from "@/domain/listings";
 import { approvePayment, getPurchaseForBuyer, startPurchase } from "@/domain/purchases";
 import { historyOf, listingRow, makeTestDeps, publishNk, purchaseRow, userId } from "../helpers";
@@ -11,7 +11,7 @@ const cases = [
   { code: "ANVAND-NK-1", reason: "butiken godkände inte koden", listing: "flagged", flagReason: "ogiltig kod" },
   {
     code: "DELVIS-NK-1",
-    reason: `saldoavvikelse: butiken anger ${kr(800)} i stället för annonserade ${kr(1000)}`,
+    reason: `saldoavvikelse: butiken anger ${kronor(800)} i stället för annonserade ${kronor(1000)}`,
     listing: "flagged",
     flagReason: "saldoavvikelse",
   },
@@ -39,12 +39,12 @@ describe("butikskontroll at purchase", () => {
       }
       const purchase = purchaseRow(deps, purchaseId);
       expect(purchase).toMatchObject({ status: "failed", failureReason: c.reason });
-      expect(listingRow(deps, listingId)).toMatchObject({
+      expect(listingRow(deps.db, listingId)).toMatchObject({
         status: c.listing,
         flagReason: c.flagReason,
         reservedById: null,
       });
-      expect(searchListings(deps.db).some((l) => l.id === listingId)).toBe(c.listing === "active");
+      expect(searchListings(deps, userId(deps.db, "Lisa")).some((l) => l.id === listingId)).toBe(c.listing === "active");
 
       // The authorization is released (one void), nothing is drawn.
       expect(deps.payments.countIn("voided")).toBe(1);

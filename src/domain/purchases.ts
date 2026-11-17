@@ -1,13 +1,14 @@
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
-import type { VerificationRequest, VerificationResult } from "@/adapters/gift-card-verifier";
+import type { VerificationResult } from "@/adapters/gift-card-verifier";
 import type { AuthorizationResult } from "@/adapters/payment-provider";
 import type { Db } from "@/db/client";
 import { listings, merchants, purchases, type PurchaseStatus } from "@/db/schema";
 import type { Deps } from "./deps";
 import { DomainError, isDomainError } from "./errors";
 import { expireDue } from "./expire-due";
+import { checkGiftCard } from "./gift-card-check";
 import { giftCardCodeFor, giftCardCodeForVerification } from "./gift-card-code";
-import { kr } from "./money";
+import { kronor } from "./money";
 import { type FailureCause, failPurchaseTx } from "./purchase-failure";
 import { transition } from "./transition";
 
@@ -178,7 +179,7 @@ export async function receivePaymentAnswer(
     .from(listings)
     .where(eq(listings.id, purchase.listingId))
     .get()!;
-  const check = await verifyWithTimeout(deps, {
+  const check = await checkGiftCard(deps, {
     code: giftCardCodeForVerification(deps.db, purchase.listingId),
     declaredBalance: listing.balance,
     phase: "purchase",
@@ -191,23 +192,6 @@ export async function receivePaymentAnswer(
   }
   await deps.payments.void(authorizationId);
   return { kind: "failed", reason: failure.cause.reason, balanceMismatch: failure.balanceMismatch };
-}
-
-/**
- * The butikskontroll at köp, raced against the configured timeout. A late answer is dropped:
- * nothing awaits it, so it can change nothing.
- */
-async function verifyWithTimeout(deps: Deps, request: VerificationRequest): Promise<VerificationResult> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<VerificationResult>((resolve) => {
-    timer = setTimeout(() => resolve({ outcome: "no_response" }), deps.config.verifierTimeoutMs);
-  });
-  const answer = deps.verifier.verify(request).catch((): VerificationResult => ({ outcome: "error" }));
-  try {
-    return await Promise.race([answer, timeout]);
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 type CheckFailure = { cause: FailureCause; balanceMismatch?: { reported: number; advertised: number } };
@@ -227,7 +211,7 @@ function failureOf(check: VerificationResult, advertised: number): CheckFailure 
       if (check.balance >= advertised) return undefined;
       return {
         cause: {
-          reason: `saldoavvikelse: butiken anger ${kr(check.balance)} i stället för annonserade ${kr(advertised)}`,
+          reason: `saldoavvikelse: butiken anger ${kronor(check.balance)} i stället för annonserade ${kronor(advertised)}`,
           actorUserId: null,
           listingTo: "flagged",
           flagReason: "saldoavvikelse",

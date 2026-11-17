@@ -8,15 +8,21 @@ export type DomainErrorCode =
   | "invalid_login_code"
   | "expired_login_code"
   | "verification_failed"
+  | "duplicate_code"
+  | "listing_locked"
   | "listing_unavailable"
   | "payment_declined"
   | "wrong_purchase_status";
 
-/** An expected, user-facing refusal. `message` is Swedish UI text. */
+/**
+ * An expected, user-facing refusal. `message` is Swedish UI text; `field` names the form
+ * field it concerns, when there is one.
+ */
 export class DomainError extends Error {
   constructor(
     readonly code: DomainErrorCode,
     message: string,
+    readonly field?: string,
   ) {
     super(message);
     this.name = "DomainError";

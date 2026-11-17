@@ -60,6 +60,14 @@ button { cursor: pointer; }
 .card .s { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .price { text-align: right; font-variant-numeric: tabular-nums; }
 .price b { display: block; font-size: 17px; }
+.price .disc { display: block; font-size: 12px; font-weight: 700; color: var(--ok); white-space: nowrap; }
+
+/* Sökningen: handlare chips and sortering */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-size: 13px; white-space: nowrap; text-decoration: none; color: inherit; }
+.chip[aria-current="page"] { background: var(--lilac); color: var(--lilac-fg); border-color: transparent; font-weight: 700; }
+.sortbar { display: flex; gap: 8px; align-items: flex-end; }
+.sortbar .field { flex: 1; }
 
 .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; }
 .pill.ok { background: var(--ok-bg); color: var(--ok); }
@@ -82,3 +90,6 @@ button { cursor: pointer; }
 .code { font-family: var(--mono); font-size: 22px; letter-spacing: .08em; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; overflow-wrap: anywhere; }
 .empty { text-align: center; color: var(--muted); padding: 24px 10px; }
 .section-t { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+details { display: flex; flex-direction: column; gap: 10px; }
+details > summary { cursor: pointer; font-weight: 700; font-size: 14px; padding: 4px 0; }
+details[open] > summary { margin-bottom: 10px; }
