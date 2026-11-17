@@ -217,3 +217,15 @@
   - **Interpretation**: Build on these; keep the shared e2e database's seeded state intact for other specs.
   - **Traced from**: S03/TI10, S04/TI06, S04/TI07, S05/TI09, S05/TI10
   - **Date**: 2026-11-17
+- **Title**: Build on S06's and S07's mina kort, köp page and history shapes
+  - **Description**:
+    - `MyCards` carries `payoutBalance`, shown at the top of mina kort in a "Simulerad utbetalning" SimBox (`data-testid="payout-balance"`); keep it.
+    - `MyListing = ListingDto & { expiryReason }` (S07) reads the orsak from the latest →expired statushistorik row with one query per Utgången annons, rendered as "Har gått ut: …" (`data-testid="expiry-reason"`). The orsak-for-every-status work generalises or replaces this – one query for the whole list – and keeps or supersedes that text.
+    - The köp page (`src/app/kop/[id]/page.tsx`, `getPurchasePage`) shows the code block with the "Klart! Visa koden i kassan." note for Levererat, Avslutat and Tvist alike; per-status copy belongs to this story (a Tvist köp must not read "Klart!").
+    - S06 added a `.history` list style and `DisputeHistoryRow` (`at`, `actor`, `reason`, `status`) with `actorName` in `src/domain/disputes.ts` ("system", "demoadministratören", or the user's full name); the statushistorik view reuses it rather than adding a second formatter.
+    - Moving the demo clock triggers, through `expireDue`, in order: reserved-past-validity (köp Misslyckat "kortet har gått ut", annons Utgången), reservation expiry, Aktiv/Flaggad past validity (Utgången), and reklamationsperiod lapse (Levererat → Avslutat with credit, when `deliveredAt + claimPeriodMs <= now`).
+    - The demoadministratör's phone (0700000000) is not in the shared `e2e/helpers.ts` `phones`; `e2e/after-delivery.spec.ts` keeps its own `ADMIN_PHONE`. Add it there if this story's e2e needs the admin.
+  - **Rationale**: S06 and S07 landed after this FIS was written and changed the surfaces it extends.
+  - **Interpretation**: Extend these shapes; add no second history formatter or orsak query path.
+  - **Traced from**: S06/TI09, S06/TI08, S07/TI07
+  - **Date**: 2026-11-17
