@@ -51,7 +51,14 @@ describe("server actions", () => {
       ["logOutAction", () => authActions.logOutAction()],
     ];
     expect(protectedActions.map(([name]) => name).sort()).toEqual(
-      ["approvePaymentAction", "logOutAction", "publishListingAction", "startPurchaseAction"].sort(),
+      [
+        "approvePaymentAction",
+        "editListingAction",
+        "logOutAction",
+        "publishListingAction",
+        "startPurchaseAction",
+        "withdrawListingAction",
+      ].sort(),
     );
     for (const [name, call] of protectedActions) {
       await expect(call(), name).rejects.toThrow("REDIRECT /logga-in");

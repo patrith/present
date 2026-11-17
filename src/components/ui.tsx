@@ -1,7 +1,8 @@
 import type { ListingStatus, PurchaseStatus } from "@/db/schema";
+import { kronor } from "@/domain/money";
 import { listingStatusLabel, purchaseStatusLabel } from "@/domain/status";
 
-export const kr = (n: number) => `${n.toLocaleString("sv-SE")} kr`;
+export const kr = kronor;
 
 const pillClass: Record<ListingStatus | PurchaseStatus, string> = {
   active: "ok",

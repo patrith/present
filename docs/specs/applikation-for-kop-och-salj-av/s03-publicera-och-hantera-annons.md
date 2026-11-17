@@ -201,3 +201,21 @@
 - Edit refusals for another user's annons and an unknown id share one not-found error so annons ids reveal nothing.
 - Sökningen already shows only Aktiv annonser (story S01), so Återkallad and Flaggad annonser leave it without a search change here.
 - Messages are Swedish and follow the prototype's tone; exact wording is free as long as each states what the scenario requires.
+
+
+## Discovered Requirements
+
+- **Title**: Field-specific refusals reach the form. **Description**: `DomainError` carries an optional `field`, `ActionResult` passes it on, and `FieldError` shows the message at that field (TI02's "field-specific domain error", TI10's "at its field"). **Rationale**: S01's form showed one message under the form and had no field channel. **Interpretation**: a refusal without a field (butikskontroll could not be completed, status refusals) still shows under the form. **Traced from**: TI02, TI10. **Date**: 2026-11-17.
+- **Title**: An empty number field is not 0. **Description**: the publish and edit actions read an empty saldo or pris as not-a-number, so it is refused as "Ange … i hela kronor" rather than reaching the prisregel as 0. **Rationale**: `Number("")` is 0, which would report the bounds instead of naming the missing field (scenario S03). **Interpretation**: conservative – field message first. **Traced from**: TI02. **Date**: 2026-11-17.
+
+
+## Implementation Observations
+
+- ASSUMPTION: correcting an annons's presentkortskod back to a code the same annons held earlier is refused by the dubblettkontroll, since the record is unique per (handlare, code) – a decision to allow an annons to return to its own earlier code would change it.
+- ASSUMPTION: the Aktiv annons view also offers code/saldo change inside a collapsed "Ändra kod eller saldo" disclosure, beyond TI10's literal "pris change and återkallelse when Aktiv", so OC03's code/saldo change on an Aktiv annons is reachable in the UI – a decision that Aktiv code/saldo edits stay domain-only would remove it.
+- The verifier timeout lives in config as `verifierTimeoutMs` (env `VERIFIER_TIMEOUT_SECONDS`, default 5) and is applied by `checkGiftCard` in `src/domain/gift-card-check.ts`; the sharedDecision "Simulatorer och svarstabell" assigns the 5 s timeout to S05, which runs in parallel and plans its own config entry (S05 TI05) – S05 should reuse `checkGiftCard` and this config key instead of adding a second. The race uses `setTimeout`, not a system-time read (S05 SC03 stays green).
+- `ListingDto` gained `flagReason`; the säljare's annons view shows "Ej godkänd" instead of "Kontrollerad (simulerat)" while a flaggningsorsak is set (also after återkallelse of a Flaggad annons – review finding F2, applied).
+- Migration `drizzle/0001_listing_codes.sql` adds `listing_codes`; a sibling story generating its own `0001_*` migration will conflict in `drizzle/meta/_journal.json` and needs regenerating at merge.
+- Review finding F1 (LOW, Routing: Note) – `src/domain/listings.ts` `editListing`: two concurrent edits by the same säljare on an Aktiv annons both pass the status-only condition, so the later commit can overwrite the earlier one's pris. Fix would be a `guard` on the read values; left per ADR-003's status-only design and demo scale.
+- Visual validation P3 (Routing: Note): the "Ändra kod eller saldo" summary is a 28 px touch target (`src/app/globals.css`); "Återkalla annonsen" sits ~10 px below the primary button when the correction form is open; the header reads "Erbjudande" on the säljare's own annons.
+- NOTICED BUT NOT TOUCHING: `e2e/demo-flow.spec.ts`, `e2e/auth.spec.ts` and `e2e/manage-listing.spec.ts` each define their own `logIn`/`expectNoHorizontalScroll` helpers; a shared `e2e/support.ts` would remove the duplication (left alone while S04/S05 edit the same specs in parallel).
