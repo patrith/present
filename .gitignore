@@ -1,2 +1,17 @@
 .agent_temp/
 *-andthen-*-review-*.md
+
+# dependencies and build output
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# demo database
+data/*.db
+data/*.db-*
+
+# test output
+test-results/
+playwright-report/
+e2e/.server.log

@@ -1,5 +1,6 @@
 # Product Requirements Document: Presentkortsmarknaden – MVP
 
+> **Shipped**: 2026-11-18T01:01Z
 > **Source**: inline:sha256:79af29f612d2
 > **Context**: Kursens case "Presentkortsmarknaden" (IT-Huset, Spec Driven Development / Agentic Engineering). Underlag: `docs/requirements/Kundcase_Presentkortsmarknaden.pdf`.
 > **Related Assets**: Designreferens (stil, ej bindande): `docs/requirements/Presentkortsapp.pdf` och Figma-prototypen https://www.figma.com/proto/sw7vtcUOgtV2veaRYl8UfP/Presentkortsapp?node-id=0-1
@@ -209,7 +210,7 @@ En säljare publicerar ett kort som klarar den simulerade kontrollen, en köpare
 **Priority**: Must / P0
 
 #### FR6: Affärens avslut och säljarens utbetalning
-**Description**: En levererad affär avslutas när köparen bekräftar att kortet fungerade, eller automatiskt när reklamationsperioden (24 timmar, kortare i demoläge) har löpt ut utan reklamation. Säljarens simulerade saldo krediteras vid avslut.
+**Description**: En levererad affär avslutas när köparen bekräftar att kortet fungerade, eller automatiskt när reklamationsperioden (24 timmar, konfigurerbar) har löpt ut utan reklamation. Säljarens simulerade saldo krediteras vid avslut.
 
 **Acceptance Criteria**:
 - [ ] Medan köpet är Levererat, när köparen bekräftar att kortet fungerade, ska systemet sätta köpet till Avslutat och kreditera säljarens simulerade saldo med köpesumman.
@@ -273,14 +274,14 @@ En säljare publicerar ett kort som klarar den simulerade kontrollen, en köpare
 **Priority**: Must / P0
 
 #### FR10: Märkning av simulering och demoläge
-**Description**: Allt simulerat ska vara synligt som simulerat. Ett demoläge gör tidsberoende scenarier visbara inom en demo.
+**Description**: Allt simulerat ska vara synligt som simulerat. Ett demoläge, som är på som standard när appen startas med README:s kommando, gör tidsberoende scenarier visbara inom en demo genom den simulerade klockan.
 
 **Acceptance Criteria**:
 - [ ] När gränssnittet visar SMS-kod, butikskontroll, betalsteg, återbetalning eller säljarens saldo ska systemet märka elementet synligt som simulerat (märkningarna "Simulerat SMS", "Kontrollerad (simulerat)" och "Simulerad utbetalning" i FR1, FR2 och FR6 uppfyller kravet).
-- [ ] Medan demoläget är på ska systemet använda konfigurerbara, kortare tider för reservation och reklamationsperiod.
+- [ ] Systemet ska använda konfigurerbara tider för reservation och reklamationsperiod, med standardvärdena 5 minuter och 24 timmar även i demoläge.
 - [ ] Medan demoläget är på, när demonstratören flyttar fram den simulerade klockan, ska systemet tillämpa alla tidsberoende regler (reservation, reklamationsperiod, utgång enligt FR8) mot den simulerade tiden och visa den simulerade tiden märkt "Simulerad tid".
 - [ ] När den simulerade butikskontrollen anropas ska systemet ge ett deterministiskt svar som bestäms av kortets kod enligt en dokumenterad tabell (giltig, ogiltig, lägre saldo, inget svar, fel).
-- [ ] När appen startas ska systemet ha förinlagda handlare, en demoadministratör och testanvändare enligt README.
+- [ ] När appen startas med README:s startkommando ska systemet vara i demoläge, med nollställd databas och förinlagda handlare, en demoadministratör, testanvändare och några aktiva annonser enligt README.
 - Inga ytterligare oönskade villkor utöver de som ägs av FR1–FR9.
 
 **Inputs / Outputs**:
@@ -315,7 +316,7 @@ En säljare publicerar ett kort som klarar den simulerade kontrollen, en köpare
 | Performance | Köpflödet från "köp" till synlig kod när simulatorerna svarar direkt | ≤ 2 s lokalt |
 | Reliability | Reservation och statusövergångar är atomära och idempotenta | 0 dubbelförsäljningar och 0 dubbla dragningar/krediteringar i automatiska tester |
 | Security | Kortets kod exponeras aldrig i sök, annonsvy, API-svar eller loggar till andra än säljaren och köparen efter leverans | 0 förekomster i automatiska tester av publika svar |
-| Security | Endast annonsens säljare får ändra den; endast köpets köpare får bekräfta eller reklamera; endast demoadministratören får besluta i tvister | Alla otillåtna försök nekas i automatiska tester |
+| Security | Endast annonsens säljare får ändra den; endast köpets köpare får godkänna eller neka betalningen, bekräfta eller reklamera; endast demoadministratören får besluta i tvister | Alla otillåtna försök nekas i automatiska tester |
 | Usability | Mobilanpassad webbapp | Alla vyer fungerar utan horisontell scroll vid 360 px bredd |
 | Usability | Simulerade steg är tydligt märkta | 100 % av elementen i FR10 |
 | Reproducibility | Start och testkörning | Dokumenterade kommandon i README; en ny klon startar och testar utan manuella steg utöver installation av verktygen |
@@ -368,13 +369,13 @@ Här listas de fall som ingen enskild funktion äger.
 |------------|----------------|
 | Simulerad butikskontroll (testadapter) med dokumenterad svarstabell | Styr publicering, köp och alla verifieringsrelaterade felscenarier |
 | Simulerad betalleverantör (auktorisera, dra, släpp, återbetala) | Styr betal- och felflöden; ska vara deterministisk och testbar |
-| Teknikval som teamet dokumenterar | Krävs innan planering och implementation |
+| Teknikval som teamet dokumenterar | Krävs innan planering och implementation – gjort i ADR-001 till ADR-005 (`docs/DECISIONS.md`) |
 
 
 ## Open Questions
 
-- Vilken teknikstack (frontend, backend, datalagring, testramverk) ska prototypen byggas med, och hur säkerställs atomär reservation i den?
-- Ska annons, köp och betalning modelleras som separata aggregat, och vilka statusövergångar är tillåtna utöver dem som FR3–FR8 anger?
+- Vilken teknikstack (frontend, backend, datalagring, testramverk) ska prototypen byggas med, och hur säkerställs atomär reservation i den? – Avgjord av ADR-001 till ADR-005 (`docs/DECISIONS.md`).
+- Vilka statusövergångar är tillåtna utöver dem som FR2–FR8 anger? – Inga: endast de övergångar som FR2–FR8 uttryckligen anger är tillåtna; alla andra nekas med ett domänfel (beslutat vid planering 2026-11-17). Aggregatindelningen är en implementationsfråga för planen.
 - Area to revisit: produktionslansering – juridisk granskning av presentkortsvillkor, konsumenträtt, GDPR, betal- och penningtvättsregler, skatt och bedrägeriskydd skulle avgöra vad som krävs bortom prototypen.
 - Area to revisit: marknadshypotesen om andelen kort som aldrig används – data eller användarintervjuer skulle göra den till ett faktum.
 
@@ -399,6 +400,9 @@ Här listas de fall som ingen enskild funktion äger.
 | En kod som förekommit i någon tidigare annons för samma handlare kan aldrig publiceras igen | Stänger dubbelförsäljning av samma kort över annonser | Spärra bara sålda koder; låta kontrollen avgöra |
 | Misslyckad ny kontroll vid ändring nekar ändringen och behåller tidigare värden | Annonsen förblir köpbar och säljaren får direkt återkoppling | Flagga annonsen |
 | Simulerad klocka i demoläge | Gör utgång och reklamationsperiod synliga i en tvåminutersdemo och testbara | Förinlagd utgången data; endast i tester |
+| Endast de statusövergångar som FR2–FR8 anger är tillåtna; övriga nekas | Varje övergång blir explicit och testad (ADR-003) | Låta implementationen lägga till rimliga övergångar |
+| Demoläget är på som standard och använder samma tider som normalt (5 min reservation, 24 h reklamationsperiod); tidsscenarier visas genom att flytta den simulerade klockan | En konfiguration att resonera om; klockan räcker för att visa tidsregler | Kortare tider i demoläge (2 min / 3 min); separat demokommando |
+| Demostarten lägger in några aktiva annonser från en testanvändare hos andra handlare än NK | Sökning, filter och sortering visar något direkt i demon, medan demoflödets NK-annons förblir ensam hos NK | Inga förinlagda annonser |
 | Antaganden bekräftade efter granskning: pris låses vid reservation; endast köparen bekräftar och reklamerar; pris kan inte ändras ensamt på Flaggad annons; första statusändring vinner vid samtidig reklamation och periodutgång; efter återbetalning förblir annonsen Såld och koden döljs; administratören ser inte koden; oregistrerat nummer hänvisas till kontoskapande; sökning kräver inloggning | Stänger luckor som granskningen hittade | – |
 | Skärmarna utformas under bygget med Figma som stilreferens; ingen separat designfas före planering | Räcker för en kursdemo och sparar tid | Wireframes först; klickbara mockups först |
 | Begrepp: **Annons** (ett presentkort till salu), **Köp** (en köpares affär om en annons), **Reservation** (tidsbegränsat lås av annonsen för en köpare), **Saldoavvikelse** (kontrollerat saldo lägre än annonserat), **Reklamationsperiod** (fönstret efter leverans då köparen kan rapportera fel), **Tvist** (en reklamerad affär som väntar på beslut) | Begreppen fastställdes under intervjun; projektet har ännu ingen ordlista | – |
