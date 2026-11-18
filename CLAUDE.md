@@ -24,6 +24,7 @@ Create a missing document and its entry here from `project-document-templates.md
 - **Ubiquitous Language** – `docs/UBIQUITOUS_LANGUAGE.md`: canonical terms and the synonyms to avoid. Read before naming, renaming, or describing domain concepts; add a row when a term settles.
 - **Requirements** – `docs/requirements/`: the source requirement specifications (kravspecar) as received. Read before writing or revising a PRD; never edit them – they are the input record.
 - **Specs & Plans** – `docs/specs/<version-or-feature>/`: per version or feature, its `prd.md`, `plan.json`, and one FIS per story (`s01-*.md`, …), written by the `clarify` and `plan` skills. Read the governing FIS before implementing; update the FIS and its story's `plan.json` row as execution proceeds. `plan.json` has one writer per copy at a time, so a `plan` breakdown's story subagents never write it. An oversized FIS is a story too big: decompose it (`OVERSIZE:`), never trim it.
+- **Learnings** – `docs/LEARNINGS.md`. Read at task start; add a bullet when bitten by a non-obvious failure.
 - **Key Dev Commands** – `CLAUDE.md#key-dev-commands`: install, start, the fast and full test tiers, and how to run one test. Read before running any check.
 - **Agent Temp** – `.agent_temp/`: scratch workspace for reviews, research, and QA; never ship from it.
 
