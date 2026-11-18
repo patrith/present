@@ -1,5 +1,6 @@
 # Product Requirements Document: Presentkortsmarknaden – MVP
 
+> **Shipped**: 2026-11-18T01:01Z
 > **Source**: inline:sha256:79af29f612d2
 > **Context**: Kursens case "Presentkortsmarknaden" (IT-Huset, Spec Driven Development / Agentic Engineering). Underlag: `docs/requirements/Kundcase_Presentkortsmarknaden.pdf`.
 > **Related Assets**: Designreferens (stil, ej bindande): `docs/requirements/Presentkortsapp.pdf` och Figma-prototypen https://www.figma.com/proto/sw7vtcUOgtV2veaRYl8UfP/Presentkortsapp?node-id=0-1
