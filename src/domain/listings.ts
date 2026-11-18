@@ -232,7 +232,7 @@ export type ListingChanges = { giftCardCode?: string; balance?: number; price?: 
  * change on an Aktiv annons saves under the prisregel without a butikskontroll; a changed code or
  * saldo also takes the dubblettkontroll and a new butikskontroll at publicering phase, and only
  * giltig with the same saldo saves it – leaving the annons Aktiv with its flaggningsorsak cleared.
- * The write is conditioned on the status read before the butikskontroll (ADR-003).
+ * The write is conditioned on the status and values read before the butikskontroll (ADR-003).
  */
 export async function editListing(
   deps: Deps,
@@ -283,6 +283,13 @@ export async function editListing(
         actorUserId: userId,
         reason,
         at: deps.clock.now(),
+        // Unchanged since read: a concurrent edit that wrote first leaves this one zero rows. The
+        // code joins the guard only when this request could read it.
+        guard: {
+          balance: listing.balance,
+          price: listing.price,
+          ...(listing.giftCardCode !== undefined && { giftCardCode: listing.giftCardCode }),
+        },
         set: { giftCardCode, balance, price, flagReason: null },
       });
       if (codeChanged) recordCode(tx, listingId, listing.merchantId, giftCardCode);

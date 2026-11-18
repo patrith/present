@@ -81,6 +81,34 @@ describe("edit guards", () => {
     });
   });
 
+  it("a concurrent edit of the same annons is refused, not applied twice", async () => {
+    const deps = makeTestDeps();
+    const sara = userId(deps.db, "Sara");
+    const id = await publishNk(deps, "NK-7201");
+    const inner = deps.verifier;
+    // A butikskontroll slow enough for both edits to read the annons before either writes.
+    deps.verifier = {
+      verify: async (request) => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return inner.verify(request);
+      },
+    };
+
+    const results = await Promise.allSettled([
+      editListing(deps, sara, id, { balance: 900 }),
+      editListing(deps, sara, id, { balance: 950, price: 700 }),
+    ]);
+
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(results.find((r) => r.status === "rejected")).toMatchObject({
+      reason: { code: "listing_locked", message: expect.stringContaining("ändrades samtidigt") },
+    });
+    // Exactly one change row, and the row holds what that change says.
+    expect(listingHistory(deps.db, id)).toHaveLength(2);
+    const row = listingRow(deps.db, id);
+    expect(listingHistory(deps.db, id).at(-1)!.reason).toMatch(new RegExp(`saldo .+ → ${row.balance} kr`));
+  });
+
   it("only the seller may edit or withdraw", async () => {
     const deps = makeTestDeps();
     const sara = userId(deps.db, "Sara");

@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { editListing, type ListingChanges, publishListing, withdrawListing } from "@/domain/listings";
-import { getDeps } from "../deps";
+import { getCurrentDeps } from "../deps";
 import { requireUser } from "../session";
 import { type ActionResult, formNumber, refusal } from "./result";
 
@@ -10,7 +10,7 @@ export async function publishListingAction(_prev: ActionResult, form: FormData):
   const user = await requireUser();
   let listingId: number;
   try {
-    listingId = await publishListing(getDeps(), user.id, {
+    listingId = await publishListing(await getCurrentDeps(), user.id, {
       merchantId: String(form.get("merchantId") ?? ""),
       giftCardCode: String(form.get("giftCardCode") ?? ""),
       balance: formNumber(form, "balance"),
@@ -31,7 +31,7 @@ export async function editListingAction(_prev: ActionResult, form: FormData): Pr
   if (form.has("giftCardCode")) changes.giftCardCode = String(form.get("giftCardCode"));
   if (form.has("balance")) changes.balance = formNumber(form, "balance");
   try {
-    await editListing(getDeps(), user.id, listingId, changes);
+    await editListing(await getCurrentDeps(), user.id, listingId, changes);
   } catch (e) {
     return refusal(e);
   }
@@ -42,7 +42,7 @@ export async function withdrawListingAction(_prev: ActionResult, form: FormData)
   const user = await requireUser();
   const listingId = Number(form.get("listingId"));
   try {
-    withdrawListing(getDeps(), user.id, listingId);
+    withdrawListing(await getCurrentDeps(), user.id, listingId);
   } catch (e) {
     return refusal(e);
   }
